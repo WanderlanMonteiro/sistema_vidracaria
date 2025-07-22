@@ -1,21 +1,17 @@
 
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return render_template('home.html')
+    return 'Sistema de Vidraçaria'
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login')
 def login():
-    if request.method == 'POST':
-        return redirect(url_for('dashboard'))
     return render_template('login.html')
 
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
-
 if __name__ == '__main__':
+    app.run()
+
     app.run(debug=True)
