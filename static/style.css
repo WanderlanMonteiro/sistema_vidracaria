@@ -1,0 +1,30 @@
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(120deg, #f0f0f0, #d0d0ff);
+    margin: 0;
+    padding: 0;
+}
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 1em;
+    text-align: center;
+}
+main {
+    padding: 2em;
+}
+.login-container {
+    max-width: 400px;
+    margin: 5em auto;
+    background: #fff;
+    padding: 2em;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+input, button {
+    display: block;
+    width: 100%;
+    margin: 1em 0;
+    padding: 0.8em;
+}
