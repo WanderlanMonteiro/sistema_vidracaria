@@ -1,0 +1,35 @@
+<% include('base') %>
+<h2>Módulo Marmoraria</h2>
+<form action="/marmoraria/cadastrar" method="post" style="margin-bottom:2rem;">
+  <input name="nome_peca" placeholder="Nome da peça" required>
+  <input name="tipo_material" placeholder="Tipo de material" required>
+  <input name="dimensoes" placeholder="Dimensões">
+  <input name="acabamento" placeholder="Acabamento">
+  <input name="preco" placeholder="Preço" type="number" step="0.01">
+  <textarea name="observacoes" placeholder="Observações"></textarea>
+  <button type="submit">Cadastrar</button>
+</form>
+<table border="1" cellpadding="5" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Peça</th>
+      <th>Tipo</th>
+      <th>Dimensões</th>
+      <th>Acabamento</th>
+      <th>Preço</th>
+      <th>Observações</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% pecas.forEach(p => { %>
+      <tr>
+        <td><%= p.nome_peca %></td>
+        <td><%= p.tipo_material %></td>
+        <td><%= p.dimensoes %></td>
+        <td><%= p.acabamento %></td>
+        <td>R$ <%= p.preco %></td>
+        <td><%= p.observacoes %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
