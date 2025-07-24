@@ -1,11 +1,19 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from datetime import timedelta
+from config import Config
+from models import db
+from dotenv import load_dotenv
+
+load_dotenv()  # Para rodar localmente e carregar variáveis do .env
 
 app = Flask(__name__)
-app.secret_key = 'segredo_super_secreto'
+app.config.from_object(Config)
+
+db.init_app(app)
+
 app.permanent_session_lifetime = timedelta(minutes=30)
 
-# Usuário padrão
+# Usuário padrão (ainda fixo, mas pronto para migrar para o banco)
 usuarios = {
     "admin": "admin"
 }
@@ -44,5 +52,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
+    app.run()
