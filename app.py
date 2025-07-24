@@ -4,7 +4,7 @@ from config import Config
 from models import db
 from dotenv import load_dotenv
 
-load_dotenv()  # Carrega variáveis do .env localmente
+load_dotenv()  # Carrega variáveis do .env ao rodar localmente
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -12,7 +12,7 @@ db.init_app(app)
 
 app.permanent_session_lifetime = timedelta(minutes=30)
 
-# Usuário padrão (futuramente pode migrar para SQLAlchemy)
+# Usuário padrão (exemplo, o ideal é usar o banco!)
 usuarios = {
     "admin": "admin"
 }
