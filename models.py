@@ -10,12 +10,16 @@ class Usuario(db.Model):
     usuario = db.Column(db.String(50), unique=True, nullable=False)
     senha = db.Column(db.String(255), nullable=False)
     tipo = db.Column(db.String(20), default='usuario')
+    orcamentos = db.relationship('Orcamento', backref='usuario', lazy=True)
 
     def set_password(self, senha):
         self.senha = generate_password_hash(senha)
 
     def check_password(self, senha):
         return check_password_hash(self.senha, senha)
+
+    def __repr__(self):
+        return f"<Usuario {self.usuario}>"
 
 class Cliente(db.Model):
     __tablename__ = 'clientes'
@@ -24,6 +28,10 @@ class Cliente(db.Model):
     telefone = db.Column(db.String(20))
     email = db.Column(db.String(100))
     endereco = db.Column(db.Text)
+    orcamentos = db.relationship('Orcamento', backref='cliente', lazy=True)
+
+    def __repr__(self):
+        return f"<Cliente {self.nome}>"
 
 class Perfil(db.Model):
     __tablename__ = 'perfis'
@@ -33,6 +41,9 @@ class Perfil(db.Model):
     preco_unitario = db.Column(db.Numeric(10,2))
     descricao = db.Column(db.Text)
 
+    def __repr__(self):
+        return f"<Perfil {self.nome}>"
+
 class Vidro(db.Model):
     __tablename__ = 'vidros'
     id = db.Column(db.Integer, primary_key=True)
@@ -40,6 +51,9 @@ class Vidro(db.Model):
     espessura = db.Column(db.String(20))
     cor = db.Column(db.String(30))
     preco_m2 = db.Column(db.Numeric(10,2))
+
+    def __repr__(self):
+        return f"<Vidro {self.tipo} {self.espessura} {self.cor}>"
 
 class Acessorio(db.Model):
     __tablename__ = 'acessorios'
@@ -49,6 +63,9 @@ class Acessorio(db.Model):
     preco_unitario = db.Column(db.Numeric(10,2))
     descricao = db.Column(db.Text)
 
+    def __repr__(self):
+        return f"<Acessorio {self.nome}>"
+
 class Orcamento(db.Model):
     __tablename__ = 'orcamentos'
     id = db.Column(db.Integer, primary_key=True)
@@ -57,6 +74,11 @@ class Orcamento(db.Model):
     data_orcamento = db.Column(db.DateTime)
     total = db.Column(db.Numeric(10,2))
     status = db.Column(db.String(20), default='pendente')
+    itens = db.relationship('ItemOrcamento', backref='orcamento', lazy=True)
+    pecas_marmoraria = db.relationship('PecaMarmoraria', backref='orcamento', lazy=True)
+
+    def __repr__(self):
+        return f"<Orcamento {self.id} Cliente:{self.cliente_id}>"
 
 class ItemOrcamento(db.Model):
     __tablename__ = 'itens_orcamento'
@@ -69,6 +91,9 @@ class ItemOrcamento(db.Model):
     preco_unitario = db.Column(db.Numeric(10,2))
     subtotal = db.Column(db.Numeric(10,2))
 
+    def __repr__(self):
+        return f"<ItemOrcamento {self.id} Orcamento:{self.orcamento_id}>"
+
 # --- MÓDULO MARMORARIA ---
 
 class Marmore(db.Model):
@@ -79,6 +104,10 @@ class Marmore(db.Model):
     cor = db.Column(db.String(50))
     preco_m2 = db.Column(db.Numeric(10,2))
     descricao = db.Column(db.Text)
+    pecas = db.relationship('PecaMarmoraria', backref='marmore', lazy=True)
+
+    def __repr__(self):
+        return f"<Marmore {self.nome}>"
 
 class AcabamentoMarmoraria(db.Model):
     __tablename__ = 'acabamentos_marmoraria'
@@ -86,6 +115,10 @@ class AcabamentoMarmoraria(db.Model):
     nome = db.Column(db.String(50), nullable=False)
     descricao = db.Column(db.Text)
     preco_linear = db.Column(db.Numeric(10,2)) # preço por metro linear do acabamento
+    pecas = db.relationship('PecaMarmoraria', backref='acabamento', lazy=True)
+
+    def __repr__(self):
+        return f"<AcabamentoMarmoraria {self.nome}>"
 
 class PecaMarmoraria(db.Model):
     __tablename__ = 'pecas_marmoraria'
@@ -101,3 +134,6 @@ class PecaMarmoraria(db.Model):
     preco_unitario = db.Column(db.Numeric(10,2))
     subtotal = db.Column(db.Numeric(10,2))
     observacao = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"<PecaMarmoraria {self.id} Orcamento:{self.orcamento_id}>"
