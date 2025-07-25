@@ -18,8 +18,7 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+
 
 const Projeto = sequelize.define('Projeto', {
   id: {
