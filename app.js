@@ -1,29 +1,20 @@
-require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
-const path = require('path');
-
 const app = express();
+const sequelize = require('./config/db');
 
-// Configuração do EJS
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+// Testar conexão com o banco
+sequelize.authenticate()
+  .then(() => console.log('Conexão com o banco de dados estabelecida!'))
+  .catch((err) => console.error('Erro na conexão com banco:', err));
 
-// Middleware
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
-// Rotas
-const marmorariaRoutes = require('./routes/marmoraria');
-app.use('/marmoraria', marmorariaRoutes);
-
+// Endpoint de teste
 app.get('/', (req, res) => {
-  res.render('dashboard');
+  res.send('Backend rodando!');
 });
 
-// Iniciar servidor
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
