@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
 // Importar modelos relacionados
-const Tipologia = require('./Tipologia');
+const Tipologia = require('./tipologia');
 const CortePerfil = require('./CortePerfil');
 const Folga = require('./Folga');
 const MargemLucro = require('./MargemLucro');
