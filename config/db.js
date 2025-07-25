@@ -2,7 +2,7 @@ const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize(
   'postgres', // nome do banco de dados (ou 'wmvidrosemarmore' se quiser usar o outro banco)
-  'wmdshere@vidracaria-marmore', // usuário completo para conectar no Azure
+  'wmdshere', // usuário completo para conectar no Azure
   'idss2010@', // senha fornecida
   {
     host: 'vidracaria-marmore.postgres.database.azure.com',
