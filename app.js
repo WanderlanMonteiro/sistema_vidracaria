@@ -19,25 +19,13 @@ sequelize.authenticate()
 // Permite receber JSON no body das requisições
 app.use(express.json());
 
-// Rotas Projeto
-app.get('/projetos', async (req, res) => {
-  try {
-    const projetos = await Projeto.findAll();
-    res.json(projetos);
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao buscar projetos', details: err });
-  }
-});
+// Importa o controller de projetos
+const projetoController = require('./controllers/ProjetoController');
 
-app.post('/projetos', async (req, res) => {
-  try {
-    const { nome, descricao } = req.body;
-    const novoProjeto = await Projeto.create({ nome, descricao });
-    res.status(201).json(novoProjeto);
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao criar projeto', details: err });
-  }
-});
+// Rotas Projeto usando controller
+app.get('/projetos', projetoController.listarProjetos);
+app.post('/projetos', projetoController.criarProjeto);
+app.get('/projetos/:id/orcamento', projetoController.calcularOrcamento);
 
 // Rotas Tipologia
 app.get('/tipologias', async (req, res) => {
