@@ -29,7 +29,7 @@ function CadastrarTipologia({ onCadastro }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2>Cadastrar Tipologia</h2>
+      <h2>Cadastrar nova tipologia</h2>
       <div>
         <label>Nome:</label>
         <input

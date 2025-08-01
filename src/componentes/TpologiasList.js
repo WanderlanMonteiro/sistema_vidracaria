@@ -11,7 +11,7 @@ function TipologiasList({ atualizar }) {
 
   return (
     <div>
-      <h2>Tipologias</h2>
+      <h2>Tipologias cadastradas</h2>
       <ul>
         {tipologias.map(t => (
           <li key={t.id}>
