@@ -127,6 +127,27 @@ cujos 8 perfis componentes (`BG-202`, `MP-300`, `MP-302`, `MP-309`, `MP-321`,
 11 fórmulas da linha, não uma seleção manual — ver
 `database/seeds/0018_release_modulo_pratico_com_peso.sql`.
 
+**Pendência específica (revisão de 2026-08-16)**: das 10 fórmulas ainda
+bloqueadas, três estão a **um único peso de perfil** de serem liberáveis pelo
+mesmo critério —
+
+| Fórmula | Falta peso de |
+|---|---|
+| PORTA DE CORRER 03 FOLHAS MP (`formulas.id=31`) | `MP-371` |
+| JANELA 04 FOLHAS MP (`formulas.id=34`) | `MP-358` |
+| JANELA 02F MÓDULO PRÁTICO (`formulas.id=35`) | `MP-358` |
+
+`MP-371` e `MP-358` não aparecem no índice de perfis do Catálogo Alcoa que já
+temos (o índice resumido do documento consolidado, não o catálogo completo)
+— não é lacuna de extração, é que essa fonte específica não cobre esses dois
+códigos. Se aparecer um catálogo Alcoa mais completo, ou qualquer outra fonte
+que cite peso para `MP-371`/`MP-358`, essas 3 fórmulas ficam liberáveis de
+imediato pelo mesmo critério objetivo já usado na `formulas.id=33`. As
+demais 7 fórmulas da linha (e as de Linha Portão/Linha Moveleira) têm 2 ou
+mais perfis pendentes cada, incluindo dezenas de códigos `SU-`/`VZC`/`VZP`
+nas duas fórmulas "integrada" — essas exigiriam uma fonte bem mais completa
+para fechar.
+
 ## Pendências residuais do Gold III
 
 - **Dados estruturais (Jx/Jy/Wx/Wy)** das páginas impressas 19–36 (gráficos de
