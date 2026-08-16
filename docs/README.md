@@ -2,7 +2,10 @@
 
 Fase 1 (núcleo técnico): schema relacional completo, interpretador seguro de fórmulas,
 API básica em PHP e dados reais extraídos de catálogos técnicos com citação de fonte
-e página. Ver `docs/GOVERNANCA_DE_DADOS.md` para as regras que todo o projeto segue.
+e página. Fase 2 (comercial/estoque/produção/qualidade): API REST sobre o restante do
+schema (clientes, projetos, orçamentos, pedidos, estoque, ordens de produção,
+protótipos, inspeção). Ver `docs/GOVERNANCA_DE_DADOS.md` para as regras que todo o
+projeto segue e `docs/API.md` para a lista completa de endpoints.
 
 ## Stack
 
@@ -22,9 +25,12 @@ src/
   Config/       -- conexão PDO
   Support/      -- .env loader, SQL script splitter
   Formula/      -- interpretador seguro de fórmulas (lexer/parser/evaluator)
-  Services/     -- cálculo de fórmula + validador de liberação de produção
+  Services/     -- cálculo de fórmula, validador de liberação de produção,
+                   movimentação de estoque, recebimento de compra, status de produção
   Http/         -- request/response/router minimalistas
-  Controllers/  -- endpoints da API
+  Controllers/  -- endpoints da API (Support/CrudController.php é a base genérica
+                   usada pela maioria dos endpoints comerciais/estoque/produção/
+                   qualidade — ver docs/API.md)
 public/
   index.php     -- front controller
   .htaccess     -- roteamento Apache (HostGator)

@@ -24,6 +24,16 @@ final class Router
         $this->add('POST', $pattern, $handler);
     }
 
+    public function put(string $pattern, callable $handler): void
+    {
+        $this->add('PUT', $pattern, $handler);
+    }
+
+    public function delete(string $pattern, callable $handler): void
+    {
+        $this->add('DELETE', $pattern, $handler);
+    }
+
     public function dispatch(Request $request): void
     {
         foreach ($this->routes as $route) {

@@ -9,11 +9,14 @@ que falta. IDs referem-se à tabela `technical_sources`.
 | 2 | Catálogo Técnico Ecoline 2.5 / SGT-GTS (5ª ed., jun/2023) | Perfil Alumínio do Brasil | 41 | ✅ Extraído — 163 perfis, ver `database/seeds/0006_ecoline25_profiles.sql` |
 | 3 | Catálogo Técnico UNNION (4ª ed., jun/2023) | Perfil Alumínio do Brasil | 32 | ✅ Extraído — 135 perfis, ver `database/seeds/0007_unnion_profiles.sql` |
 | 4 | Catálogo de Perfis Tec-Vidro "TEC-SUP" | Tec-Vidro | 10 | ✅ Extraído na 2ª tentativa — 41 perfis, ver `database/seeds/0008_suprema_profiles.sql`. **Achado importante**: a palavra "Suprema" não aparece em nenhuma página do PDF-fonte; o catálogo se identifica só como "TEC-SUP". A linha ficou com `status_code = NECESSITA_CONFERENCIA` até confirmar o nome comercial real com o fabricante. Sem coluna de aplicação nem segmentação "revenda"/"fachada cortina" nesta fonte. |
-| 5-7 | Gold III — Perfis e Acessórios (3 partes) | Alcoa / Alumínio & Cia | 49+37+7 | ✅ Extraído — 114 perfis + 94 acessórios + 22 combinações de compatibilidade vidro/guarnição (p.104), ver `database/seeds/0009_goldiii_profiles_accessories.sql`. 93 imagens de página em `docs/assets/gold-iii/`. **Achados importantes**: os códigos de exemplo do pedido original (fechos FEC1028/1029, FEC1036/1038/1040/1042, cotas "A"/"B" de usinagem) **não existem** em nenhum dos 3 arquivos — não foram inventados. O exemplo de compatibilidade citado no pedido ("LG015/LG050 vidro 6mm → GUA256/GUA304") também não bate exatamente com o catálogo; a tabela real está na fonte. O catálogo grafa o mesmo perfil ora como "LG-0XX" ora como "LG-XX" em páginas diferentes (ex: LG-018/LG-0018) — tratado com casamento tolerante de código, documentado em cada linha afetada. |
+| 5-7 | Gold III — Perfis e Acessórios (3 partes) | Alcoa / Alumínio & Cia | 49+37+7 | ✅ Extraído — 114 perfis + 94 acessórios + 22 combinações de compatibilidade vidro/guarnição (p.104), ver `database/seeds/0009_goldiii_profiles_accessories.sql`. 93 imagens de página foram exportadas e depois removidas do repositório em
+2026-08-16 (pedido do usuário, ver seção de pendências abaixo) — os dados
+extraídos continuam no banco com página citada. **Achados importantes**: os códigos de exemplo do pedido original (fechos FEC1028/1029, FEC1036/1038/1040/1042, cotas "A"/"B" de usinagem) **não existem** em nenhum dos 3 arquivos — não foram inventados. O exemplo de compatibilidade citado no pedido ("LG015/LG050 vidro 6mm → GUA256/GUA304") também não bate exatamente com o catálogo; a tabela real está na fonte. O catálogo grafa o mesmo perfil ora como "LG-0XX" ora como "LG-XX" em páginas diferentes (ex: LG-018/LG-0018) — tratado com casamento tolerante de código, documentado em cada linha afetada. |
 | 8 | "Esquadrias de Alumínio: como especificar, comprar e conservar" (Hydro, 2004) | Hydro Building Systems | 52 | ✅ Extraído (normas NBR, checklist de manutenção, tabela de anodização); ainda **não convertido em seed SQL** — conteúdo só existe no histórico da sessão/relatório do agente. |
 | 9 | "Tipos de Esquadria de Alumínio" (CEHOP 1.10.02) | — | 8 | ✅ Extraído (tabela completa de tipos de janela com vantagens/desvantagens); ainda **não convertido em seed SQL**. |
 | 10 | Planilha interna de cálculo de corte (`PlanilhaEsquadrias101.xlsx`) | várias (ver abaixo) | 76 abas de tipologia | ✅ Processada — **primeira fonte real de fórmulas de corte** do projeto. Ver seção dedicada abaixo. |
 | 11 | Catálogo consolidado — índice extraído de 4 catálogos (Catálogo AL, Catálogo Alcoa, Catálogo geral Alutec, Catálogo promocional Aluminconte), enviado como `detalhes_tecnicos_catalogos.pdf` (42 pág.) + `catalogo_consolidado.xlsx` | Alcoa (parcial) / Alutec / Aluminconte | 42 (PDF) + 434 linhas (xlsx) | ⚠️ **Não são os catálogos originais** — é um índice já resumido, sem os 4 PDFs-fonte. A maior parte das ~430 entradas é só nome de seção + página, sem dado técnico (ex: "LINHA III GOLD \| Página: 205" sem tabela). Mas contém um "Índice de Perfis" real do Catálogo Alcoa (código + peso kg/m + página, ~912 códigos distintos) — usado para **confirmar o fabricante da linha Módulo Prático/Linha 30** (ver abaixo). Ver `database/seeds/0014_alcoa_modulo_pratico_confirmation.sql`. |
+| 12 | Catálogo AL Indústria (`CatalogoAL.pdf`) | AL Indústria | 44 | ✅ Extraído — **este arquivo não é o Catálogo Alcoa**, apesar do nome parecido/pedido do usuário para "usar o catálogo Alcoa". É o catálogo da **AL Indústria** (Rua Juraci Aletto 224, Mauá-SP, fundada 2003), fabricante de ferragens para vidro temperado (Linha Capa/Linha Tradicional: dobradiças, fechaduras, trincos, suportes — 84 códigos), puxadores (polímero/inox/alumínio/aço — 40 códigos com comprimento/diâmetro reais) e kits de perfil de alumínio (Kit Sacada, Kit Pia, Kit Box, Kit Box Reto, Kit Engenharia 8/10mm — 20 peças de seção, sem peso informado no catálogo). Ver `database/seeds/0016_al_industria.sql`. Os descontos de vão citados nos kits (ex: "Kit Pia: portas = vão − 40mm") ficaram documentados na descrição da `product_lines.id=10`, não viraram `formula_deductions` porque não há tipologia/fórmula cadastrada para eles ainda. |
 
 ## Planilha interna de cálculo de corte — a fonte mais importante até agora
 
@@ -115,10 +118,13 @@ partir de uma instrução geral" em `docs/GOVERNANCA_DE_DADOS.md`.
 - **Arquivo 3** (5d03514a, tipologias JC2F/PC2FPE/etc.) não tem dados tabulares
   próprios, só nomes de tipologia — não gerou linhas em `typologies` para evitar
   duplicar as 9 tipologias já cadastradas do Livro 5 sem uma correspondência clara.
-- **`technical_drawings`**: as 93 imagens em `docs/assets/gold-iii/` ainda não
-  foram associadas linha a linha a `profiles.id`/`accessories.id` — o nome do
-  arquivo (`pXXX_fN.png`) já corresponde à página de cada código (ver tabelas do
-  relatório de extração), falta o script de associação em lote.
+- **`technical_drawings`**: as 93 imagens de página exportadas do Gold III foram
+  **removidas do repositório em 2026-08-16** (pedido explícito do usuário) sem
+  terem sido associadas a `profiles.id`/`accessories.id`. Os dados extraídos das
+  páginas (código, peso, descrição) já estão no banco via
+  `0009_goldiii_profiles_accessories.sql` com página citada em cada linha — só a
+  imagem em si não existe mais. Se for necessário no futuro, as páginas podem ser
+  reexportadas dos PDFs originais (fontes 5-7) pela página citada em cada perfil.
 
 ## Import pendente: guias gerais Hydro + CEHOP
 
