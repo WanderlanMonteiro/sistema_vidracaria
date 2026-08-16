@@ -1,7 +1,45 @@
 # API
 
-Todas as respostas são JSON. Sem autenticação nesta fase (adicionar antes de expor
-publicamente — ver "Próximos passos" no fim deste documento).
+Todas as respostas são JSON. **Toda rota exige sessão autenticada**, exceto `GET /`
+(descoberta) e `POST /auth/login`.
+
+## Autenticação
+
+Sessão por cookie (não token/JWT) — o frontend (`public/app/`) é servido no mesmo
+domínio da API, então cookie é a opção mais simples: `HttpOnly` (não acessível via
+JS, mitiga roubo de sessão por XSS), `SameSite=Lax` (o navegador não manda o cookie
+em requisição disparada por outro site, mitiga CSRF), `Secure` automático quando
+servido por HTTPS. Sessão expira em 8h de inatividade ou ao fechar o navegador.
+
+### `POST /auth/login`
+```json
+{ "email": "fulano@exemplo.com", "password": "..." }
+```
+200 com `{ "user": {...} }` e grava o cookie de sessão. 401 com `{ "error": "E-mail
+ou senha inválidos." }` para e-mail inexistente, senha errada, ou usuário inativo —
+a mensagem é a mesma nos três casos, de propósito, para não revelar quais e-mails
+existem no sistema.
+
+### `POST /auth/logout`
+Encerra a sessão. Sempre 200.
+
+### `GET /auth/me`
+Retorna `{ "user": {...} }` da sessão atual, ou 401 se não autenticado — é assim que
+o frontend decide se mostra a tela de login ou o conteúdo.
+
+### `PUT /auth/senha`
+```json
+{ "current_password": "...", "new_password": "..." }
+```
+Exige sessão ativa. Nova senha precisa ter 8+ caracteres. 401 se a senha atual
+informada estiver errada.
+
+### Usuários
+Não há endpoint de cadastro de usuário pela API ainda (só o `users` da migration
+`0008_auth.sql`) — criar/desativar usuário é feito direto no banco por enquanto.
+Só existe uma camada de autenticação hoje: qualquer usuário ativo autenticado acessa
+toda a API. O campo `role` existe na tabela `users` para uso futuro (permissão por
+papel), mas nenhuma rota verifica esse campo ainda.
 
 ## Fase 1 — núcleo técnico
 
@@ -110,9 +148,11 @@ produção próprio; o andamento etapa-a-etapa (corte, usinagem, montagem...) é
 
 ## Próximos passos sugeridos (fora do escopo desta fase)
 
-- Autenticação (token/JWT) antes de expor a API fora da rede interna.
+- Endpoint de cadastro/gestão de usuários pela API (hoje é direto no banco).
+- Permissão por papel (`users.role` existe, não é verificado ainda — hoje é tudo ou nada).
 - Endpoints de aprovação/liberação de fórmula (`POST /formulas/{id}/aprovar` etc.) —
   hoje essas linhas são criadas via seed/SQL direto, com revisão humana registrada em
   `docs/GOVERNANCA_DE_DADOS.md`, não pela API.
-- CORS explícito quando o frontend for servido de um subdomínio separado.
+- CORS explícito quando o frontend for servido de um subdomínio separado (hoje conta
+  com cookie de sessão same-origin, então não precisa).
 - Paginação de verdade (hoje é `LIMIT 200/500` fixo) quando o volume de dados crescer.

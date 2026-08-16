@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/../src/autoload.php';
 
 use App\Config\Database;
+use App\Controllers\AuthController;
 use App\Controllers\FormulaController;
 use App\Controllers\GoodsReceiptController;
 use App\Controllers\ManufacturerController;
@@ -16,6 +17,7 @@ use App\Controllers\TypologyController;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
+use App\Support\Auth;
 use App\Support\Env;
 
 Env::load(__DIR__ . '/../.env');
@@ -30,6 +32,8 @@ set_exception_handler(static function (\Throwable $e): void {
         500
     );
 });
+
+Auth::start();
 
 $db = Database::connection();
 $router = new Router();
@@ -54,6 +58,12 @@ $router->get('/', static function () use ($db): void {
         'documentacao' => 'Ver docs/API.md',
     ]);
 });
+
+// --- Autenticação --- (/auth/login é a única rota de dado que fica pública, ver guard abaixo)
+$router->post('/auth/login', [new AuthController($db), 'login']);
+$router->post('/auth/logout', [new AuthController($db), 'logout']);
+$router->get('/auth/me', [new AuthController($db), 'me']);
+$router->put('/auth/senha', [new AuthController($db), 'changePassword']);
 
 // --- Núcleo técnico (Fase 1) ---
 $router->get('/fabricantes', [new ManufacturerController($db), 'index']);
@@ -119,4 +129,12 @@ $registerCrud($router, '/desenhos-tecnicos', new CrudController($db, 'technical_
 // audit_logs é somente leitura pela API -- é escrito pelo próprio sistema, nunca editado por um cliente.
 $router->get('/auditoria', [new CrudController($db, 'audit_logs', [], ['entity_type', 'entity_id']), 'index']);
 
-$router->dispatch(Request::fromGlobals());
+$request = Request::fromGlobals();
+
+// Toda rota exige sessão autenticada, exceto o endpoint de descoberta e o login em si.
+$publicPaths = ['/', '/auth/login'];
+if (!in_array($request->path, $publicPaths, true)) {
+    Auth::requireAuth();
+}
+
+$router->dispatch($request);

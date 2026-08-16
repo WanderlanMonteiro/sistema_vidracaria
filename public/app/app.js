@@ -19,35 +19,42 @@
     return n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
 
+  class AuthRequiredError extends Error {}
+
+  function failFrom(res, body, path) {
+    const message = (body && body.error) ? body.error : `Erro ${res.status} ao chamar ${path}`;
+    return res.status === 401 ? new AuthRequiredError(message) : new Error(message);
+  }
+
   async function api(path) {
     const res = await fetch(path, { headers: { Accept: 'application/json' } });
     const body = await res.json().catch(() => null);
-    if (!res.ok) {
-      const message = (body && body.error) ? body.error : `Erro ${res.status} ao chamar ${path}`;
-      throw new Error(message);
-    }
+    if (!res.ok) throw failFrom(res, body, path);
     return body;
   }
 
-  async function apiPost(path, payload) {
+  async function apiSend(method, path, payload) {
     const res = await fetch(path, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload || {}),
     });
     const body = await res.json().catch(() => null);
-    if (!res.ok) {
-      const message = (body && body.error) ? body.error : `Erro ${res.status} ao chamar ${path}`;
-      throw new Error(message);
-    }
+    if (!res.ok) throw failFrom(res, body, path);
     return body;
   }
+
+  const apiPost = (path, payload) => apiSend('POST', path, payload);
 
   function setLoading(label) {
     app.innerHTML = `<div class="state">Carregando ${esc(label)}…</div>`;
   }
 
   function setError(err) {
+    if (err instanceof AuthRequiredError) {
+      renderLogin('Sua sessão expirou. Entre novamente.');
+      return;
+    }
     app.innerHTML = `<div class="state error">Não deu para carregar: ${esc(err.message || err)}</div>`;
   }
 
@@ -358,6 +365,69 @@
     });
   }
 
+  // --- Autenticação ------------------------------------------------------
+
+  function showTopnav(user) {
+    const topnav = document.getElementById('topnav');
+    const topbarUser = document.getElementById('topbar-user');
+    if (user) {
+      topnav.hidden = false;
+      topbarUser.hidden = false;
+      document.getElementById('user-name').textContent = user.name || user.email;
+    } else {
+      topnav.hidden = true;
+      topbarUser.hidden = true;
+    }
+  }
+
+  function renderLogin(message) {
+    showTopnav(null);
+    app.innerHTML = `
+      <div class="login-wrap">
+        <div class="login-box">
+          <div class="brand-mark" style="width:40px;height:40px;font-size:1.3rem;">V</div>
+          <h1>Entrar no sistema</h1>
+          ${message ? `<div class="login-error">${esc(message)}</div>` : ''}
+          <form id="login-form">
+            <div class="field">
+              <label for="login-email">E-mail</label>
+              <input id="login-email" name="email" type="email" required autofocus />
+            </div>
+            <div class="field">
+              <label for="login-password">Senha</label>
+              <input id="login-password" name="password" type="password" required />
+            </div>
+            <button class="btn" type="submit">Entrar</button>
+          </form>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('login-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const submitBtn = ev.target.querySelector('button[type=submit]');
+      submitBtn.disabled = true;
+      try {
+        const result = await apiPost('/auth/login', {
+          email: data.get('email'),
+          password: data.get('password'),
+        });
+        showTopnav(result.user);
+        route();
+      } catch (err) {
+        submitBtn.disabled = false;
+        renderLogin(err.message || 'Não foi possível entrar.');
+      }
+    });
+  }
+
+  document.getElementById('logout-link').addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    try { await apiPost('/auth/logout', {}); } catch (err) { /* segue para o login de qualquer forma */ }
+    renderLogin();
+  });
+
   // --- Router ----------------------------------------------------------
 
   function setActiveNav(section) {
@@ -366,7 +436,15 @@
     });
   }
 
-  function route() {
+  async function route() {
+    let session;
+    try {
+      session = await api('/auth/me');
+    } catch (err) {
+      return renderLogin();
+    }
+    showTopnav(session.user);
+
     const hash = window.location.hash.replace(/^#/, '') || '/fabricantes';
     const [pathPart, queryPart] = hash.split('?');
     const params = new URLSearchParams(queryPart || '');

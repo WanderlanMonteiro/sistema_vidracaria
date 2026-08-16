@@ -11,7 +11,8 @@ projeto segue e `docs/API.md` para a lista completa de endpoints.
 
 - **Backend**: PHP 8.1+ puro (sem framework, sem Composer obrigatório em produção) — compatível com hospedagem compartilhada HostGator/cPanel.
 - **Banco**: MySQL 5.7+/MariaDB 10.3+ (mesmo servidor da hospedagem do domínio).
-- **Frontend**: SPA estática (HTML/CSS/JS puro, sem build) em `public/app/`, servida no mesmo domínio da API. Cobre por enquanto o catálogo técnico: fabricantes, perfis (com filtro) e fórmulas (lista, detalhe com checklist de liberação, e calculadora de corte para as liberadas). Fluxo comercial/estoque/produção ainda não tem tela — só a API (ver `docs/API.md`).
+- **Frontend**: SPA estática (HTML/CSS/JS puro, sem build) em `public/app/`, servida no mesmo domínio da API, com tela de login. Cobre por enquanto o catálogo técnico: fabricantes, perfis (com filtro) e fórmulas (lista, detalhe com checklist de liberação, e calculadora de corte para as liberadas). Fluxo comercial/estoque/produção ainda não tem tela — só a API (ver `docs/API.md`).
+- **Autenticação**: sessão por cookie (`App\Support\Auth`), toda rota exige login exceto `/` e `/auth/login`. Ver `docs/API.md#autenticação`.
 
 ## Estrutura
 
@@ -23,10 +24,11 @@ database/
   seed.php      -- aplica seeds pendentes (idempotente)
 src/
   Config/       -- conexão PDO
-  Support/      -- .env loader, SQL script splitter
   Formula/      -- interpretador seguro de fórmulas (lexer/parser/evaluator)
   Services/     -- cálculo de fórmula, validador de liberação de produção,
-                   movimentação de estoque, recebimento de compra, status de produção
+                   movimentação de estoque, recebimento de compra, status de produção,
+                   autenticação (AuthService, testável sem sessão real)
+  Support/      -- .env loader, SQL script splitter, sessão de autenticação (Auth)
   Http/         -- request/response/router minimalistas
   Controllers/  -- endpoints da API (Support/CrudController.php é a base genérica
                    usada pela maioria dos endpoints comerciais/estoque/produção/
@@ -48,8 +50,16 @@ cp .env.example .env
 php database/migrate.php
 php database/seed.php
 php -S 127.0.0.1:8000 -t public
-curl http://127.0.0.1:8000/formulas
+
+# quase toda rota exige login -- a seed 0019 cria um usuário inicial (a senha
+# gerada foi entregue fora do repositório; troque com PUT /auth/senha assim que
+# possível). Guarde a sessão num cookie jar:
+curl -c /tmp/cookies.txt -X POST http://127.0.0.1:8000/auth/login \
+  -d '{"email":"...", "password":"..."}'
+curl -b /tmp/cookies.txt http://127.0.0.1:8000/formulas
 ```
+
+Ou abra `http://127.0.0.1:8000/app/` no navegador para usar a interface com login.
 
 ## Rodando os testes
 
