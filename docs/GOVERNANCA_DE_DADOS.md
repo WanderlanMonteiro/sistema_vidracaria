@@ -129,10 +129,32 @@ Na sequência, o mesmo responsável revisou e confirmou "libera tudo do Gold III
 e Suprema" — as 36 fórmulas restantes dessas duas linhas foram liberadas do
 mesmo jeito (`database/seeds/0013_release_goldiii_suprema.sql`). Com isso,
 **as 48 fórmulas ligadas a linhas totalmente catalogadas estão liberadas**.
-As 28 fórmulas de Módulo Prático/Linha Portão/Linha Moveleira continuam
+As 28 fórmulas de Módulo Prático/Linha Portão/Linha Moveleira continuavam
 `CATALOGADO`/bloqueadas — não por decisão pendente sobre a fórmula, mas porque
-essas 3 linhas ainda não têm fabricante confirmado nem perfis com peso/
+essas 3 linhas ainda não tinham fabricante confirmado nem perfis com peso/
 dimensão catalogados (ver `docs/FONTES.md`).
+
+### Exemplo de liberação por critério objetivo, não por linha inteira
+
+Depois que o fabricante de Módulo Prático/Linha 30 foi confirmado (Alcoa) e
+32 dos seus perfis ganharam peso real, o pedido do responsável técnico foi
+"libera as fórmulas do Módulo Prático/Linha 30 que já tem peso confirmado" —
+uma condição objetiva sobre os dados, não uma instrução de liberar a linha
+inteira. Isso é diferente de "libera tudo do Ecoline e UNNION": ali a pessoa
+tinha visto a lista completa das 12 fórmulas e selecionado explicitamente;
+aqui o critério em si já delimita o conjunto, e cabe ao sistema aplicá-lo com
+precisão, não arredondar para "a linha toda" nem para "nenhuma".
+
+Aplicado às 11 fórmulas da linha, **só uma** — "JANELA DE CORRER 03 FOLHAS
+MP" — tem os 8 perfis componentes com `weight_kg_per_m` preenchido; as outras
+10 usam pelo menos um perfil (`MP-058`, `MP-202`, códigos `LG-`/`SU-`/`VZ-`
+etc.) que continua `PENDENTE`. Só essa uma fórmula foi liberada
+(`database/seeds/0018_release_modulo_pratico_com_peso.sql`), com a mesma nota
+de auditoria honesta das liberações anteriores (uso comprovado em produção
+real via a planilha do usuário, não um protótipo físico novo desta sessão).
+As outras 10 permanecem bloqueadas até seus perfis também terem peso
+confirmado — o critério do usuário não foi "abrir exceção", foi objetivo e o
+sistema não deveria liberar formulas fora dele.
 
 ## Compatibilidade entre linhas/fabricantes
 

@@ -111,11 +111,21 @@ As constantes embutidas nas 996 expressões (tipo `-25`, `-50` antes do `/2`)
 'EXTRAIDO'`). **As 48 fórmulas das 4 linhas totalmente catalogadas foram
 revisadas e liberadas para produção** pelo responsável técnico (seeds `0012`
 e `0013`) — suas deduções viraram `VALIDADO` e cada uma ganhou protótipo/
-aprovação técnica registrados. As 28 fórmulas das 3 linhas novas continuam
-`CATALOGADO`/bloqueadas, não por dúvida sobre a fórmula, mas porque os
-próprios perfis dessas linhas ainda não têm peso/dimensão nem fabricante
-confirmado. Ver "Por que a liberação para produção não é feita a
-partir de uma instrução geral" em `docs/GOVERNANCA_DE_DADOS.md`.
+aprovação técnica registrados. Ver "Por que a liberação para produção não é
+feita a partir de uma instrução geral" em `docs/GOVERNANCA_DE_DADOS.md`.
+
+Das 28 fórmulas das 3 linhas novas (Módulo Prático/Linha 30, Linha Portão,
+Linha Moveleira), 27 continuam `CATALOGADO`/bloqueadas — não por dúvida sobre
+a fórmula em si, mas porque usam ao menos um perfil cujo peso ainda não foi
+confirmado. **Uma exceção**: em 2026-08-16, por instrução explícita do
+usuário ("libera as fórmulas do Módulo Prático/Linha 30 que já tem peso
+confirmado"), foi liberada a fórmula **"JANELA DE CORRER 03 FOLHAS MP"**
+(`formulas.id = 33`) — a única das 11 fórmulas de Módulo Prático/Linha 30
+cujos 8 perfis componentes (`BG-202`, `MP-300`, `MP-302`, `MP-309`, `MP-321`,
+`MP-366`, `MP-368`, `MP-416`) já têm peso confirmado (seed
+`0014_alcoa_modulo_pratico_confirmation.sql`). Critério objetivo aplicado às
+11 fórmulas da linha, não uma seleção manual — ver
+`database/seeds/0018_release_modulo_pratico_com_peso.sql`.
 
 ## Pendências residuais do Gold III
 
