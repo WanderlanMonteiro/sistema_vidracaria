@@ -9,28 +9,25 @@ que falta. IDs referem-se à tabela `technical_sources`.
 | 2 | Catálogo Técnico Ecoline 2.5 / SGT-GTS (5ª ed., jun/2023) | Perfil Alumínio do Brasil | 41 | ✅ Extraído — 163 perfis, ver `database/seeds/0006_ecoline25_profiles.sql` |
 | 3 | Catálogo Técnico UNNION (4ª ed., jun/2023) | Perfil Alumínio do Brasil | 32 | ✅ Extraído — 135 perfis, ver `database/seeds/0007_unnion_profiles.sql` |
 | 4 | Catálogo de Perfis Tec-Vidro "TEC-SUP" | Tec-Vidro | 10 | ✅ Extraído na 2ª tentativa — 41 perfis, ver `database/seeds/0008_suprema_profiles.sql`. **Achado importante**: a palavra "Suprema" não aparece em nenhuma página do PDF-fonte; o catálogo se identifica só como "TEC-SUP". A linha ficou com `status_code = NECESSITA_CONFERENCIA` até confirmar o nome comercial real com o fabricante. Sem coluna de aplicação nem segmentação "revenda"/"fachada cortina" nesta fonte. |
-| 5-7 | Gold III — Perfis e Acessórios (3 partes) | Alcoa / Alumínio & Cia | 49+37+7 | ⏳ Extração relançada; imagens de página em `docs/assets/gold-iii/` (`pdftoppm`, 150dpi). Ver estado mais recente ao abrir este arquivo — pode já ter sido concluída em uma sessão posterior. |
+| 5-7 | Gold III — Perfis e Acessórios (3 partes) | Alcoa / Alumínio & Cia | 49+37+7 | ✅ Extraído — 114 perfis + 94 acessórios + 22 combinações de compatibilidade vidro/guarnição (p.104), ver `database/seeds/0009_goldiii_profiles_accessories.sql`. 93 imagens de página em `docs/assets/gold-iii/`. **Achados importantes**: os códigos de exemplo do pedido original (fechos FEC1028/1029, FEC1036/1038/1040/1042, cotas "A"/"B" de usinagem) **não existem** em nenhum dos 3 arquivos — não foram inventados. O exemplo de compatibilidade citado no pedido ("LG015/LG050 vidro 6mm → GUA256/GUA304") também não bate exatamente com o catálogo; a tabela real está na fonte. O catálogo grafa o mesmo perfil ora como "LG-0XX" ora como "LG-XX" em páginas diferentes (ex: LG-018/LG-0018) — tratado com casamento tolerante de código, documentado em cada linha afetada. |
 | 8 | "Esquadrias de Alumínio: como especificar, comprar e conservar" (Hydro, 2004) | Hydro Building Systems | 52 | ✅ Extraído (normas NBR, checklist de manutenção, tabela de anodização); ainda **não convertido em seed SQL** — conteúdo só existe no histórico da sessão/relatório do agente. |
 | 9 | "Tipos de Esquadria de Alumínio" (CEHOP 1.10.02) | — | 8 | ✅ Extraído (tabela completa de tipos de janela com vantagens/desvantagens); ainda **não convertido em seed SQL**. |
 
-## Como retomar a extração pendente
+## Pendências residuais do Gold III
 
-As fontes 4 a 7 falharam porque a conta atingiu o limite de uso da sessão durante a
-extração em paralelo (5 agentes simultâneos). Para retomar:
-
-1. Repita o mesmo padrão de tarefa usada para Ecoline/UNNION (ver histórico desta
-   sessão ou o texto death dos agentes "Extract Suprema catalog data" / "Extract Gold
-   III catalog data and drawings") — a regra inegociável é: **nunca inventar
-   dimensão/peso/fórmula, sempre citar página, usar "não encontrado" quando faltar**.
-2. Salvar a extração em Markdown com tabelas no formato
-   `| Código | Descrição | Peso kg/m | Dimensões | Aplicação | Página |` (6 colunas
-   exatas) — é o formato que `scripts` de importação (baseados em
-   `gen_seed.py`, ver mensagem de commit ou repita o padrão manualmente) sabem
-   converter automaticamente em `INSERT`s com `source_references` corretas.
-3. Depois de gerar o `.md`, gerar o seed SQL e rodar `php database/seed.php`.
-4. Para o Gold III, associar as imagens já exportadas (`docs/assets/gold-iii/p0XX_*.png`)
-   a cada `profiles.id`/`accessories.id` via `technical_drawings` (tabela criada
-   especificamente para isso em `database/migrations/0007_quality.sql`).
+- **Dados estruturais (Jx/Jy/Wx/Wy)** das páginas impressas 19–36 (gráficos de
+  pressão de ensaio por tipologia: bandeira, peitoril, mão de amigo, central 4
+  folhas, montante maxim-ar) foram extraídos e documentados no relatório, mas
+  ainda **não carregados** em `structural_limits`/`pressure_limits` — exigem
+  decidir o `subject_type` correto (tipologia vs. combinação de perfis) antes de
+  modelar.
+- **Arquivo 3** (5d03514a, tipologias JC2F/PC2FPE/etc.) não tem dados tabulares
+  próprios, só nomes de tipologia — não gerou linhas em `typologies` para evitar
+  duplicar as 9 tipologias já cadastradas do Livro 5 sem uma correspondência clara.
+- **`technical_drawings`**: as 93 imagens em `docs/assets/gold-iii/` ainda não
+  foram associadas linha a linha a `profiles.id`/`accessories.id` — o nome do
+  arquivo (`pXXX_fN.png`) já corresponde à página de cada código (ver tabelas do
+  relatório de extração), falta o script de associação em lote.
 
 ## Import pendente: guias gerais Hydro + CEHOP
 
