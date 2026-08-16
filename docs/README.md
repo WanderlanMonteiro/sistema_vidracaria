@@ -11,7 +11,7 @@ projeto segue e `docs/API.md` para a lista completa de endpoints.
 
 - **Backend**: PHP 8.1+ puro (sem framework, sem Composer obrigatório em produção) — compatível com hospedagem compartilhada HostGator/cPanel.
 - **Banco**: MySQL 5.7+/MariaDB 10.3+ (mesmo servidor da hospedagem do domínio).
-- **Frontend**: ainda não incluído nesta fase — a API já está pronta para ser consumida por um SPA estático servido no mesmo domínio (ver `docs/API.md`).
+- **Frontend**: SPA estática (HTML/CSS/JS puro, sem build) em `public/app/`, servida no mesmo domínio da API. Cobre por enquanto o catálogo técnico: fabricantes, perfis (com filtro) e fórmulas (lista, detalhe com checklist de liberação, e calculadora de corte para as liberadas). Fluxo comercial/estoque/produção ainda não tem tela — só a API (ver `docs/API.md`).
 
 ## Estrutura
 
@@ -32,8 +32,9 @@ src/
                    usada pela maioria dos endpoints comerciais/estoque/produção/
                    qualidade — ver docs/API.md)
 public/
-  index.php     -- front controller
+  index.php     -- front controller da API
   .htaccess     -- roteamento Apache (HostGator)
+  app/          -- frontend estático (catálogo técnico + calculadora de fórmula)
 tests/          -- testes sem dependências externas (`php tests/run-all.php`)
 docs/           -- esta documentação
 ```
