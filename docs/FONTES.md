@@ -30,35 +30,45 @@ fórmulas de Excel relacionando o comprimento de corte de cada perfil à largura
    inventou ou aproximou um valor; fórmulas que dependiam de `IF`/`SUM`/
    `ROUNDUP` (que são cálculo de compra de barra, não de corte) foram marcadas
    como não resolvidas e não entraram como fórmula de corte.
-3. O código de cada perfil foi conferido contra o banco já carregado —
-   **62 das 76 abas bateram diretamente** com perfis já catalogados (Suprema
-   35, UNNION 12, Gold III 9, Ecoline 2.5 6), então a fórmula ficou vinculada
-   ao `profiles.id` real, com peso/dimensão já conhecidos de outra fonte.
-4. As outras 14 abas usam códigos de **3 linhas que não existiam em nenhum
-   catálogo já processado**: "Módulo Prático / Linha 30" (perfis MP-xxx),
-   "Linha Portão" (perfis PC/PU/LB-xxx) e "Linha Moveleira" (armários/
-   gaveteiros com porta de giro em alumínio — linha citada na contracapa do
-   catálogo Ecoline 2.5, mas nunca detalhada em nenhum PDF recebido). Essas 3
-   linhas foram cadastradas com fabricante `NECESSITA_CONFERENCIA` porque a
-   planilha não diz quem fabrica os perfis MP/Portão — só o próprio código.
-   Os 204 perfis novos ficaram com peso/dimensão `PENDENTE` (a planilha não
-   traz peso nem cota de seção, só o comprimento de corte calculado).
+3. O código de cada perfil foi conferido contra o banco já carregado, usando
+   códigos **distintos** por aba (a primeira versão do script contava um
+   perfil repetido duas vezes na mesma aba como duas provas de pertencer a uma
+   linha, o que causou classificações erradas — corrigido, ver commit
+   `1acac45`) — **48 das 76 abas bateram diretamente** com perfis já
+   catalogados (Suprema 30, UNNION 6, Gold III 6, Ecoline 2.5 6), então a
+   fórmula ficou vinculada ao `profiles.id` real. Isso também revelou 78
+   perfis reais adicionais dessas mesmas linhas que não estavam nas páginas
+   dos catálogos PDF já processados (+2 Ecoline 2.5, +9 Gold III, +67
+   Suprema) — cadastrados com peso/dimensão `PENDENTE` já que a planilha só
+   traz o comprimento calculado, não o peso do perfil.
+4. As outras 28 abas usam códigos de **3 linhas que não existiam em nenhum
+   catálogo já processado**: "Módulo Prático / Linha 30" (104 perfis MP-xxx),
+   "Linha Portão" (8 perfis PC/PU/LB-xxx) e "Linha Moveleira" (32 perfis —
+   armários/gaveteiros com porta de giro em alumínio, linha citada na
+   contracapa do catálogo Ecoline 2.5 mas nunca detalhada em nenhum PDF
+   recebido). Essas 3 linhas foram cadastradas com fabricante
+   `NECESSITA_CONFERENCIA` porque a planilha não diz quem fabrica os perfis
+   MP/Portão — só o próprio código. Os 144 perfis novos dessas 3 linhas
+   ficaram com peso/dimensão `PENDENTE`.
 5. Uma aba (`04 GAVETAS P02`) tinha um layout diferente e não foi processada.
 
 **Resultado**: 77 fórmulas reais (`formulas`/`formula_versions`), 996
 componentes de corte (`formula_components`), todas **verificadas batendo
 exatamente com os valores reais calculados na própria planilha** (testado via
-API contra a fórmula "Janela de Correr 2 Folhas UNNION": L=1393/A=1090 produz
-os mesmos 1368/1368/1090/1040/1040/640mm que a planilha calcula).
+API contra fórmulas de UNNION, Gold III e Suprema — ex: "Janela de Correr 2
+Folhas UNNION" com L=1393/A=1090 produz os mesmos 1368/1368/1090/1040/1040/
+640mm que a planilha calcula).
 
-**Todas ficam com `status_code = CATALOGADO` e `production_locked = 1`** —
-nenhuma foi liberada para produção. As constantes embutidas nas 996 expressões
-(tipo `-25`, `-50` antes do `/2`) **foram decompostas em 610
-`formula_deductions`** (seed `0011_formula_deductions_from_planilha.sql`,
-`status_code = 'EXTRAIDO'`) — o sistema já sabe que cada constante existe e
-qual o valor dela, mas nenhuma foi marcada `VALIDADO`, porque isso exige
-confirmar o que a constante significa fisicamente, fórmula por fórmula, não
-só decompor o número. Ver "Por que a liberação para produção não é feita a
+As constantes embutidas nas 996 expressões (tipo `-25`, `-50` antes do `/2`)
+**foram decompostas em 610 `formula_deductions`** (seed
+`0011_formula_deductions_from_planilha.sql`, inicialmente `status_code =
+'EXTRAIDO'`). **As 48 fórmulas das 4 linhas totalmente catalogadas foram
+revisadas e liberadas para produção** pelo responsável técnico (seeds `0012`
+e `0013`) — suas deduções viraram `VALIDADO` e cada uma ganhou protótipo/
+aprovação técnica registrados. As 28 fórmulas das 3 linhas novas continuam
+`CATALOGADO`/bloqueadas, não por dúvida sobre a fórmula, mas porque os
+próprios perfis dessas linhas ainda não têm peso/dimensão nem fabricante
+confirmado. Ver "Por que a liberação para produção não é feita a
 partir de uma instrução geral" em `docs/GOVERNANCA_DE_DADOS.md`.
 
 ## Pendências residuais do Gold III
