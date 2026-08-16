@@ -123,8 +123,16 @@ liberou exatamente as 12 fórmulas dessas duas linhas (`formulas.id` 3–8 e
 ganhou `formula_validations`/`prototypes`/`technical_approvals` com nota
 explícita ("liberada após revisão humana da lista completa... base da
 aprovação: uso comprovado em produção real, não um novo protótipo físico
-desta sessão"). As 36 fórmulas restantes (Gold III, Suprema) permanecem
-`CATALOGADO`/bloqueadas até uma decisão equivalente sobre elas.
+desta sessão").
+
+Na sequência, o mesmo responsável revisou e confirmou "libera tudo do Gold III
+e Suprema" — as 36 fórmulas restantes dessas duas linhas foram liberadas do
+mesmo jeito (`database/seeds/0013_release_goldiii_suprema.sql`). Com isso,
+**as 48 fórmulas ligadas a linhas totalmente catalogadas estão liberadas**.
+As 28 fórmulas de Módulo Prático/Linha Portão/Linha Moveleira continuam
+`CATALOGADO`/bloqueadas — não por decisão pendente sobre a fórmula, mas porque
+essas 3 linhas ainda não têm fabricante confirmado nem perfis com peso/
+dimensão catalogados (ver `docs/FONTES.md`).
 
 ## Compatibilidade entre linhas/fabricantes
 

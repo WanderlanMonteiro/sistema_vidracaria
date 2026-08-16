@@ -71,6 +71,6 @@ apontar o domínio/subdomínio para a pasta `public/`.
 | Guias gerais Hydro + CEHOP | Extraídos, aguardando importação em seed (ver `docs/FONTES.md`) |
 | Catálogo Gold III (perfis + acessórios) | Extraído — 114 perfis + 94 acessórios + 22 compatibilidades vidro/guarnição |
 | Catálogo "TEC-SUP" / Suprema (Tec-Vidro) | Extraído — 41 perfis. O nome "Suprema" não é confirmado na fonte (ver `docs/FONTES.md`) |
-| Planilha interna de cálculo de corte | Extraída — **77 fórmulas de corte reais** (996 componentes), a primeira fonte de fórmulas do projeto. **12 já liberadas para produção** (Ecoline 2.5 + UNNION). Ver `docs/FONTES.md` e `docs/GOVERNANCA_DE_DADOS.md` |
+| Planilha interna de cálculo de corte | Extraída — **77 fórmulas de corte reais** (996 componentes). **48 já liberadas para produção** (Ecoline 2.5 + UNNION + Gold III + Suprema — todas as ligadas a linhas totalmente catalogadas). As 28 restantes (Módulo Prático, Linha Portão, Linha Moveleira) seguem bloqueadas até essas linhas terem fabricante e catálogo confirmados. Ver `docs/FONTES.md` e `docs/GOVERNANCA_DE_DADOS.md` |
 
 Ver `docs/FONTES.md` para o detalhamento completo e o que falta para cada fonte.
