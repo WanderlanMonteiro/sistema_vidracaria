@@ -111,6 +111,21 @@ mais frequência) ou em lote, desde que a decisão de liberar seja tomada
 deliberadamente — por exemplo, revisando a lista de fórmulas e confirmando
 explicitamente quais delas se quer liberar, em vez de "libera todas".
 
+### Exemplo de liberação feita corretamente
+
+Depois da decomposição, o sistema listou as 48 fórmulas elegíveis (linhas já
+totalmente catalogadas) agrupadas por fabricante, com título de cada uma, para
+o responsável técnico revisar. A resposta foi "libera tudo do Ecoline e
+UNNION" — uma seleção específica sobre uma lista que a pessoa efetivamente
+viu, não um "libera tudo" às cegas. Por isso, `database/seeds/0012_release_ecoline_unnion.sql`
+liberou exatamente as 12 fórmulas dessas duas linhas (`formulas.id` 3–8 e
+23–28): `formula_deductions` viraram `VALIDADO`, e cada `formula_versions`
+ganhou `formula_validations`/`prototypes`/`technical_approvals` com nota
+explícita ("liberada após revisão humana da lista completa... base da
+aprovação: uso comprovado em produção real, não um novo protótipo físico
+desta sessão"). As 36 fórmulas restantes (Gold III, Suprema) permanecem
+`CATALOGADO`/bloqueadas até uma decisão equivalente sobre elas.
+
 ## Compatibilidade entre linhas/fabricantes
 
 `profile_compatibilities.is_explicit` só é `1` quando a fonte documenta a
