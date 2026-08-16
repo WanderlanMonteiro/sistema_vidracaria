@@ -16,7 +16,7 @@ extraídos continuam no banco com página citada. **Achados importantes**: os c�
 | 9 | "Tipos de Esquadria de Alumínio" (CEHOP 1.10.02) | — | 8 | ✅ Extraído (tabela completa de tipos de janela com vantagens/desvantagens); ainda **não convertido em seed SQL**. |
 | 10 | Planilha interna de cálculo de corte (`PlanilhaEsquadrias101.xlsx`) | várias (ver abaixo) | 76 abas de tipologia | ✅ Processada — **primeira fonte real de fórmulas de corte** do projeto. Ver seção dedicada abaixo. |
 | 11 | Catálogo consolidado — índice extraído de 4 catálogos (Catálogo AL, Catálogo Alcoa, Catálogo geral Alutec, Catálogo promocional Aluminconte), enviado como `detalhes_tecnicos_catalogos.pdf` (42 pág.) + `catalogo_consolidado.xlsx` | Alcoa (parcial) / Alutec / Aluminconte | 42 (PDF) + 434 linhas (xlsx) | ⚠️ **Não são os catálogos originais** — é um índice já resumido, sem os 4 PDFs-fonte. A maior parte das ~430 entradas é só nome de seção + página, sem dado técnico (ex: "LINHA III GOLD \| Página: 205" sem tabela). Mas contém um "Índice de Perfis" real do Catálogo Alcoa (código + peso kg/m + página, ~912 códigos distintos) — usado para **confirmar o fabricante da linha Módulo Prático/Linha 30** (ver abaixo). Ver `database/seeds/0014_alcoa_modulo_pratico_confirmation.sql`. |
-| 12 | Catálogo AL Indústria (`CatalogoAL.pdf`) | AL Indústria | 44 | ✅ Extraído — **este arquivo não é o Catálogo Alcoa**, apesar do nome parecido/pedido do usuário para "usar o catálogo Alcoa". É o catálogo da **AL Indústria** (Rua Juraci Aletto 224, Mauá-SP, fundada 2003), fabricante de ferragens para vidro temperado (Linha Capa/Linha Tradicional: dobradiças, fechaduras, trincos, suportes — 84 códigos), puxadores (polímero/inox/alumínio/aço — 40 códigos com comprimento/diâmetro reais) e kits de perfil de alumínio (Kit Sacada, Kit Pia, Kit Box, Kit Box Reto, Kit Engenharia 8/10mm — 20 peças de seção, sem peso informado no catálogo). Ver `database/seeds/0016_al_industria.sql`. Os descontos de vão citados nos kits (ex: "Kit Pia: portas = vão − 40mm") ficaram documentados na descrição da `product_lines.id=10`, não viraram `formula_deductions` porque não há tipologia/fórmula cadastrada para eles ainda. |
+| 12 | Catálogo AL Indústria (`CatalogoAL.pdf`) | AL Indústria | 44 | ✅ Extraído por completo — **este arquivo não é o Catálogo Alcoa**, apesar do nome parecido/pedido do usuário para "usar o catálogo Alcoa". É o catálogo da **AL Indústria** (Rua Juraci Aletto 224, Mauá-SP, fundada 2003), fabricante de ferragens para vidro temperado. Total: **149 acessórios** (84 ferragens Linha Capa/Tradicional + 40 puxadores + 25 itens do Kit Sacada sem Rolamento, pág. 36) e **34 perfis de seção** dos kits de alumínio (Kit Sacada, Kit Pia, Kit Box, Kit Box Reto, Kit Engenharia 8/10mm — 29 com dimensão catalogada, 5 sem dimensão numérica legível na página, marcados `PENDENTE`). Ver `database/seeds/0016_al_industria.sql` e `0017_al_industria_complemento.sql` (complemento pedido pelo usuário: acessórios do Kit Sacada que tinham ficado de fora da primeira leva). Os descontos de vão citados nos kits (ex: "Kit Pia: portas = vão − 40mm") ficaram documentados na descrição da `product_lines.id=10`, não viraram `formula_deductions` porque não há tipologia/fórmula cadastrada para eles ainda. |
 
 ## Planilha interna de cálculo de corte — a fonte mais importante até agora
 
@@ -72,8 +72,18 @@ fórmulas de Excel relacionando o comprimento de corte de cada perfil à largura
    A mesma verificação para "Linha Portão" deu resultado fraco (2 de 8
    códigos batidos — `PU-639` e `LB-050` —, exatamente no limiar de 25%, e
    `PU-639` aparece no índice Alcoa com duas páginas diferentes para o mesmo
-   peso, um conflito interno da própria fonte). Não foi usado para confirmar
-   fabricante; "Linha Portão" continua `NECESSITA_CONFERENCIA`.
+   peso, um conflito interno da própria fonte).
+
+   **Atualização (2026-08-16, segunda rodada)**: por instrução explícita do
+   usuário ("linha portão eu quero que seja concluída, não precisa pesquisar
+   mais, use as referências que tem"), a classificação de "Linha Portão" como
+   Alcoa foi **aceita como definitiva** com a evidência já levantada, sem
+   nova pesquisa — uma decisão humana deliberada de encerrar o assunto, não
+   uma nova evidência técnica. Ficou `status_code = 'CATALOGADO'`, não
+   `VALIDADO`; os 6 perfis sem correspondência no índice Alcoa (`PC-027`,
+   `25-517`, `LB-072`, `TRD-1"`, `TRG-2X1`, `GS-034`) continuam com peso
+   `PENDENTE`, porque decidir não pesquisar mais não cria um dado que nenhuma
+   fonte já extraída contém.
 
    Achado importante que **não** foi usado para alterar dado nenhum: o mesmo
    índice Alcoa também cita uma seção "Linha Suprema" (págs. 157–202) com
