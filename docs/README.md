@@ -69,7 +69,7 @@ apontar o domínio/subdomínio para a pasta `public/`.
 | Catálogo Ecoline 2.5 / SGT-GTS | Extraído — 163 perfis cadastrados com página citada |
 | Catálogo UNNION | Extraído — 135 perfis cadastrados com página citada |
 | Guias gerais Hydro + CEHOP | Extraídos, aguardando importação em seed (ver `docs/FONTES.md`) |
-| Catálogo Gold III (perfis + acessórios) | Upload recebido; extração de tabela interrompida por limite de sessão — imagens de página já exportadas em `docs/assets/gold-iii/` |
-| Catálogo Suprema (Tec-Vidro) | Upload recebido; extração ainda não iniciada com sucesso |
+| Catálogo Gold III (perfis + acessórios) | Extração relançada — ver `docs/FONTES.md` para o estado mais recente |
+| Catálogo "TEC-SUP" / Suprema (Tec-Vidro) | Extraído — 41 perfis. O nome "Suprema" não é confirmado na fonte (ver `docs/FONTES.md`) |
 
 Ver `docs/FONTES.md` para o detalhamento completo e o que falta para cada fonte.
