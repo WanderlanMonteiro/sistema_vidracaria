@@ -52,11 +52,14 @@ API contra a fórmula "Janela de Correr 2 Folhas UNNION": L=1393/A=1090 produz
 os mesmos 1368/1368/1090/1040/1040/640mm que a planilha calcula).
 
 **Todas ficam com `status_code = CATALOGADO` e `production_locked = 1`** —
-nenhuma foi liberada para produção automaticamente. Nenhuma tem
-`formula_deductions` nomeadas ainda (as constantes tipo `-25`, `-50`, `/2`
-embutidas nas expressões não foram decompostas e rotuladas individualmente),
-então o checklist da seção 13 sempre bloqueia liberação até isso ser feito —
-ver `docs/GOVERNANCA_DE_DADOS.md`.
+nenhuma foi liberada para produção. As constantes embutidas nas 996 expressões
+(tipo `-25`, `-50` antes do `/2`) **foram decompostas em 610
+`formula_deductions`** (seed `0011_formula_deductions_from_planilha.sql`,
+`status_code = 'EXTRAIDO'`) — o sistema já sabe que cada constante existe e
+qual o valor dela, mas nenhuma foi marcada `VALIDADO`, porque isso exige
+confirmar o que a constante significa fisicamente, fórmula por fórmula, não
+só decompor o número. Ver "Por que a liberação para produção não é feita a
+partir de uma instrução geral" em `docs/GOVERNANCA_DE_DADOS.md`.
 
 ## Pendências residuais do Gold III
 

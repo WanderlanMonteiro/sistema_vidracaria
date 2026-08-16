@@ -70,6 +70,47 @@ Resultado: `GET /formulas/1/checklist-producao` retorna `released: false` com a
 lista exata do que falta. `POST /formulas/1/calcular` recusa calcular até alguém
 completar o checklist deliberadamente.
 
+## Por que a liberação para produção não é feita a partir de uma instrução geral
+
+As 77 fórmulas reais extraídas da planilha interna de cálculo (ver
+`docs/FONTES.md`, seed `0010_planilha_cutting_formulas.sql`) tiveram suas
+constantes decompostas em `formula_deductions` (seed
+`0011_formula_deductions_from_planilha.sql`, 610 linhas, `status_code =
+'EXTRAIDO'`). Isso significa: **o sistema sabe que existe um "-25mm" na fórmula
+de corte do marco superior**, mas nenhuma dessas 610 linhas foi marcada
+`VALIDADO`.
+
+A diferença entre `EXTRAIDO` e `VALIDADO` aqui é deliberada. Foi pedido
+diretamente ("libera as primeiras fórmulas pra produção") para liberar essas
+fórmulas, o que exigiria criar, para cada uma: um registro de
+`formula_validations` (protótipo aprovado, revisão técnica aprovada), um
+registro de `prototypes` com `status = APROVADO`, e um `technical_approvals`
+atribuído ao usuário — tudo isso a partir de uma única instrução em chat, sem
+revisão fórmula a fórmula.
+
+Isso não foi feito. Marcar 60 fórmulas como aprovadas/prototipadas em nome de
+alguém, com base numa instrução geral e não numa revisão individual de cada
+uma, seria precisamente o tipo de dado fabricado que a seção 13 do briefing
+original existe para impedir — mesmo que a intenção do pedido fosse legítima
+(as fórmulas realmente já estão em uso real na fábrica). A trilha de auditoria
+de aprovação de uma fórmula de corte deve refletir uma decisão tomada sobre
+aquela fórmula especificamente, não uma aprovação em lote.
+
+**O que falta para liberar de verdade**: para cada `formula_versions` que se
+queira liberar, alguém com autoridade técnica precisa, fórmula por fórmula:
+1. Revisar as `formula_deductions` dela e mudar `status_code` para `VALIDADO`
+   (confirmando o que cada constante significa, não só que ela existe).
+2. Registrar uma `formula_validations` com `result = 'APROVADO'`.
+3. Registrar um `prototypes` com `status = 'APROVADO'` (ou uma justificativa
+   equivalente e específica daquela fórmula, se o protótipo físico for
+   dispensado por já estar em uso comprovado).
+4. Registrar um `technical_approvals` para aquela `formula_version_id`.
+
+Isso pode ser feito uma fórmula de cada vez (mais rápido para as usadas com
+mais frequência) ou em lote, desde que a decisão de liberar seja tomada
+deliberadamente — por exemplo, revisando a lista de fórmulas e confirmando
+explicitamente quais delas se quer liberar, em vez de "libera todas".
+
 ## Compatibilidade entre linhas/fabricantes
 
 `profile_compatibilities.is_explicit` só é `1` quando a fonte documenta a
