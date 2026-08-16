@@ -66,6 +66,15 @@ perfil/acessório/tipologia — criada para atender ao pedido de desenhos do Gol
   `pressure_limits` é por `product_line_id` (linha inteira), enquanto os valores
   encontrados são por perfil individual. Migrar isso para uma tabela por-perfil é
   um ajuste de schema pendente, não uma perda de dado (o valor está preservado).
+- **3 linhas de produto novas sem fabricante confirmado** ("Módulo Prático /
+  Linha 30", "Linha Portão", "Linha Moveleira") foram criadas a partir da
+  planilha interna de cálculo de corte, cujos códigos de perfil não batem com
+  nenhum catálogo de fabricante já processado. `manufacturers.notes` e
+  `product_lines.status_code = NECESSITA_CONFERENCIA` deixam isso explícito —
+  ver `docs/FONTES.md`.
+- **2 tipologias fora do escopo original de esquadrias de janela/porta**
+  ("Portão de Correr", "Porta/Gaveta de Móvel") foram adicionadas pela mesma
+  razão: a planilha do usuário cobre mais do que só esquadrias de edificação.
 - **`formula_deductions`** existe para nomear separadamente descontos/folgas
   embutidos numa expressão de fórmula (ex: os `+9`/`-38`/`-129`/`-130` do Asa Flex),
   permitindo que o checklist de liberação de produção (seção 13) verifique se cada
