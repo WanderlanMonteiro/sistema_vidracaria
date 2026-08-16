@@ -13,6 +13,7 @@ que falta. IDs referem-se à tabela `technical_sources`.
 | 8 | "Esquadrias de Alumínio: como especificar, comprar e conservar" (Hydro, 2004) | Hydro Building Systems | 52 | ✅ Extraído (normas NBR, checklist de manutenção, tabela de anodização); ainda **não convertido em seed SQL** — conteúdo só existe no histórico da sessão/relatório do agente. |
 | 9 | "Tipos de Esquadria de Alumínio" (CEHOP 1.10.02) | — | 8 | ✅ Extraído (tabela completa de tipos de janela com vantagens/desvantagens); ainda **não convertido em seed SQL**. |
 | 10 | Planilha interna de cálculo de corte (`PlanilhaEsquadrias101.xlsx`) | várias (ver abaixo) | 76 abas de tipologia | ✅ Processada — **primeira fonte real de fórmulas de corte** do projeto. Ver seção dedicada abaixo. |
+| 11 | Catálogo consolidado — índice extraído de 4 catálogos (Catálogo AL, Catálogo Alcoa, Catálogo geral Alutec, Catálogo promocional Aluminconte), enviado como `detalhes_tecnicos_catalogos.pdf` (42 pág.) + `catalogo_consolidado.xlsx` | Alcoa (parcial) / Alutec / Aluminconte | 42 (PDF) + 434 linhas (xlsx) | ⚠️ **Não são os catálogos originais** — é um índice já resumido, sem os 4 PDFs-fonte. A maior parte das ~430 entradas é só nome de seção + página, sem dado técnico (ex: "LINHA III GOLD \| Página: 205" sem tabela). Mas contém um "Índice de Perfis" real do Catálogo Alcoa (código + peso kg/m + página, ~912 códigos distintos) — usado para **confirmar o fabricante da linha Módulo Prático/Linha 30** (ver abaixo). Ver `database/seeds/0014_alcoa_modulo_pratico_confirmation.sql`. |
 
 ## Planilha interna de cálculo de corte — a fonte mais importante até agora
 
@@ -50,6 +51,38 @@ fórmulas de Excel relacionando o comprimento de corte de cada perfil à largura
    `NECESSITA_CONFERENCIA` porque a planilha não diz quem fabrica os perfis
    MP/Portão — só o próprio código. Os 144 perfis novos dessas 3 linhas
    ficaram com peso/dimensão `PENDENTE`.
+
+   **Atualização (2026-08-16)**: o fabricante da linha "Módulo Prático / Linha
+   30" foi **confirmado como Alcoa** a partir do catálogo consolidado (fonte
+   11 acima). Dos 69 códigos distintos da linha, 52 (75%) batem código+peso+
+   página exatamente contra o "Índice de Perfis" do Catálogo Alcoa, e a seção
+   "Módulo Prático II" desse índice começa na página 115 — a mesma faixa
+   (115–128) onde aparecem os códigos MP-xxx da nossa planilha. Mesmo limiar
+   de decisão já usado para classificar as 76 abas (n≥2 códigos distintos E
+   ratio≥0.25), aqui superado com folga. `product_lines.id=7` passou para
+   `manufacturer_id=2` (Alcoa) e `status_code='CATALOGADO'`; 32 perfis
+   (MP-/MN-/BG-/ME-, sem conflito com nenhuma outra fonte) ganharam peso real
+   citando página. Isso **não libera nenhuma fórmula para produção** — a
+   liberação continua exigindo revisão de dedução + protótipo + aprovação,
+   fórmula por fórmula, como sempre.
+
+   A mesma verificação para "Linha Portão" deu resultado fraco (2 de 8
+   códigos batidos — `PU-639` e `LB-050` —, exatamente no limiar de 25%, e
+   `PU-639` aparece no índice Alcoa com duas páginas diferentes para o mesmo
+   peso, um conflito interno da própria fonte). Não foi usado para confirmar
+   fabricante; "Linha Portão" continua `NECESSITA_CONFERENCIA`.
+
+   Achado importante que **não** foi usado para alterar dado nenhum: o mesmo
+   índice Alcoa também cita uma seção "Linha Suprema" (págs. 157–202) com
+   vários códigos SU-xxx que também aparecem na "Módulo Prático/Linha 30" —
+   e os pesos são **próximos mas não idênticos** aos já cadastrados para a
+   linha Suprema (fonte 4, catálogo TEC-SUP/Tec-Vidro): ex. `SU-001` = 0,714
+   kg/m no TEC-SUP vs 0,762 kg/m no índice Alcoa; `SU-010` = 1,008 vs 1,022;
+   `SU-012` = 0,547 vs 0,539. Próximo demais para ser coincidência, longe
+   demais para ser o mesmo número — **isso é um conflito entre fontes, não
+   uma confirmação**, registrado em "Conflitos encontrados nas fontes" em
+   `docs/GOVERNANCA_DE_DADOS.md`. Nenhum peso da linha Suprema foi alterado
+   por causa disso.
 5. Uma aba (`04 GAVETAS P02`) tinha um layout diferente e não foi processada.
 
 **Resultado**: 77 fórmulas reais (`formulas`/`formula_versions`), 996

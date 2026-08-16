@@ -154,3 +154,21 @@ do desenho individual do perfil (ex: peso do `MP-348`, do `ECO-720`, do `ECO-776
 Nenhum desses conflitos foi resolvido arbitrariamente — ambos os valores foram
 preservados no campo de descrição/notas do perfil, marcados para conferência humana
 com o fabricante antes de qualquer uso em cálculo de peso ou orçamento.
+
+**Suprema (Tec-Vidro) vs. "Linha Suprema" do Catálogo Alcoa**: ao processar o
+catálogo consolidado enviado em 2026-08-16 (`docs/FONTES.md`, fonte 11), vários
+códigos `SU-xxx` que já tínhamos cadastrado como linha Suprema (fonte 4, catálogo
+"TEC-SUP", fabricante Tec-Vidro) apareceram *de novo* no índice de perfis do
+Catálogo Alcoa, numa seção literalmente chamada "Linha Suprema" — com pesos
+**próximos mas não idênticos** (`SU-001` 0,714 kg/m no TEC-SUP vs. 0,762 kg/m no
+Alcoa; `SU-010` 1,008 vs. 1,022; `SU-012` 0,547 vs. 0,539; `SU-039` 0,516 vs.
+0,520). A proximidade é grande demais para ser coincidência de código entre
+fabricantes não relacionados, mas os números não batem exatamente — não dá para
+dizer se é o mesmo perfil sob duas fontes com pequena divergência de medição/
+arredondamento, revenda de um fabricante pelo outro, ou linhas realmente
+diferentes com nomenclatura parecida. Por isso: **nenhum peso da linha Suprema
+existente foi alterado**, e os códigos `SU-/US-/VZ-` desse mesmo cruzamento não
+entraram na confirmação de fabricante da linha Módulo Prático/Linha 30 (que usou
+só os códigos `MP-/MN-/BG-/ME-`, sem conflito com nenhuma outra fonte). Fica
+registrado para conferência humana antes de qualquer decisão que dependa do peso
+exato desses perfis.

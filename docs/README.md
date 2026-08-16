@@ -72,5 +72,6 @@ apontar o domínio/subdomínio para a pasta `public/`.
 | Catálogo Gold III (perfis + acessórios) | Extraído — 114 perfis + 94 acessórios + 22 compatibilidades vidro/guarnição |
 | Catálogo "TEC-SUP" / Suprema (Tec-Vidro) | Extraído — 41 perfis. O nome "Suprema" não é confirmado na fonte (ver `docs/FONTES.md`) |
 | Planilha interna de cálculo de corte | Extraída — **77 fórmulas de corte reais** (996 componentes). **48 já liberadas para produção** (Ecoline 2.5 + UNNION + Gold III + Suprema — todas as ligadas a linhas totalmente catalogadas). As 28 restantes (Módulo Prático, Linha Portão, Linha Moveleira) seguem bloqueadas até essas linhas terem fabricante e catálogo confirmados. Ver `docs/FONTES.md` e `docs/GOVERNANCA_DE_DADOS.md` |
+| Catálogo consolidado (AL/Alcoa/Alutec/Aluminconte) | Analisado — índice resumido, não os catálogos originais. Confirmou o fabricante da linha "Módulo Prático/Linha 30" como Alcoa (75% dos códigos batem com peso+página citados) e carregou peso real para 32 perfis. Revelou um conflito de peso entre a linha Suprema já cadastrada e uma seção "Linha Suprema" do próprio catálogo Alcoa (não resolvido, ver `docs/GOVERNANCA_DE_DADOS.md`). Fórmulas seguem bloqueadas — essa é confirmação de fabricante/peso, não liberação para produção. |
 
 Ver `docs/FONTES.md` para o detalhamento completo e o que falta para cada fonte.
