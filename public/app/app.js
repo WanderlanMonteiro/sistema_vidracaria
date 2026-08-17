@@ -365,6 +365,49 @@
     });
   }
 
+  async function viewChangePassword() {
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Trocar senha</h1>
+        <p>A senha precisa ter 8 ou mais caracteres.</p>
+      </div>
+      <div class="calc-box" style="max-width:360px;">
+        <form id="change-password-form">
+          <div class="field" style="margin-bottom:0.9rem;">
+            <label for="cp-current">Senha atual</label>
+            <input id="cp-current" name="current_password" type="password" required />
+          </div>
+          <div class="field" style="margin-bottom:0.9rem;">
+            <label for="cp-new">Nova senha</label>
+            <input id="cp-new" name="new_password" type="password" minlength="8" required />
+          </div>
+          <button class="btn" type="submit">Salvar nova senha</button>
+        </form>
+        <div id="change-password-result" style="margin-top:0.9rem;"></div>
+      </div>
+    `;
+
+    document.getElementById('change-password-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const resultBox = document.getElementById('change-password-result');
+      const submitBtn = ev.target.querySelector('button[type=submit]');
+      submitBtn.disabled = true;
+      try {
+        await apiSend('PUT', '/auth/senha', {
+          current_password: data.get('current_password'),
+          new_password: data.get('new_password'),
+        });
+        resultBox.innerHTML = `<div class="state" style="color:var(--ok);padding:0;">Senha alterada com sucesso.</div>`;
+        ev.target.reset();
+      } catch (err) {
+        resultBox.innerHTML = `<div class="state error" style="padding:0;">${esc(err.message)}</div>`;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
   // --- Autenticação ------------------------------------------------------
 
   function showTopnav(user) {
@@ -465,6 +508,10 @@
     if (segments[0] === 'formulas') {
       setActiveNav('formulas');
       return viewFormulas();
+    }
+    if (segments[0] === 'senha') {
+      setActiveNav('');
+      return viewChangePassword();
     }
 
     app.innerHTML = `<div class="state">Página não encontrada.</div>`;
