@@ -584,39 +584,78 @@
     try {
       const projectFilter = params ? params.get('project_id') : null;
       const query = projectFilter ? `?project_id=${projectFilter}` : '';
-      const [quotes, projects] = await Promise.all([api(`/orcamentos${query}`), api('/projetos')]);
-      renderOrcamentos(quotes, projects, projectFilter);
+      const [quotes, projects, customers] = await Promise.all([
+        api(`/orcamentos${query}`), api('/projetos'), api('/clientes'),
+      ]);
+      renderOrcamentos(quotes, projects, customers, projectFilter);
     } catch (err) {
       setError(err);
     }
   }
 
-  function renderOrcamentos(quotes, projects, projectFilter) {
-    const projectById = Object.fromEntries(projects.map((p) => [String(p.id), p.name]));
+  function renderOrcamentos(quotes, projects, customers, projectFilter) {
+    const projectById = Object.fromEntries(projects.map((p) => [String(p.id), p]));
+    const customerById = Object.fromEntries(customers.map((c) => [String(c.id), c]));
+
     const rows = quotes.map((q) => `
       <tr>
         <td><a href="#/orcamentos/${q.id}">#${q.id}</a></td>
-        <td class="wrap">${esc(projectById[String(q.project_id)] || '—')}</td>
+        <td class="wrap">${esc(projectById[String(q.project_id)]?.name || '—')}</td>
         <td>${statusPillForData(q.status)}</td>
         <td class="num">${fmtMoney(q.total_value)}</td>
       </tr>
     `).join('');
 
+    const presetProject = projectFilter ? (projectById[String(projectFilter)] || null) : null;
+    const presetCustomer = presetProject ? (customerById[String(presetProject.customer_id)] || null) : null;
+
     app.innerHTML = `
       <div class="page-head">
         <h1>Orçamentos</h1>
-        <p>${quotes.length} orçamento(s)${projectFilter ? ' para esta obra' : ''}.</p>
+        <p>${quotes.length} orçamento(s)${projectFilter ? ' para esta obra' : ''}. Busque o cliente pelo nome — se ele
+        ou a obra ainda não existirem, dá pra cadastrar sem sair desta tela.</p>
       </div>
       <div class="form-box">
-        <form class="form-grid" id="quote-form">
-          <div class="field" style="flex-basis:240px;"><label for="qt-project">Obra *</label>
-            <select id="qt-project" name="project_id" required>
-              <option value="">Selecione…</option>
-              ${optionsFrom(projects, 'id', 'name', projectFilter)}
-            </select>
+        <div class="form-grid" style="margin-bottom:0.6rem;">
+          <div class="field" style="flex-basis:260px;">
+            <label for="qt-customer-search">Cliente *</label>
+            <input id="qt-customer-search" type="text" list="qt-customer-list" placeholder="Digite pra buscar…"
+                   autocomplete="off" value="${esc(presetCustomer ? presetCustomer.name : '')}" />
+            <datalist id="qt-customer-list">
+              ${customers.map((c) => `<option value="${esc(c.name)}">`).join('')}
+            </datalist>
           </div>
-          <div class="field"><label for="qt-status">Status</label>
-            <select id="qt-status" name="status">${enumOptions(QUOTE_STATUS, 'RASCUNHO')}</select>
+          <button type="button" class="btn btn-ghost btn-small" id="qt-new-customer-toggle">+ Cliente novo</button>
+        </div>
+        <div class="form-box" id="qt-new-customer-box" hidden style="background:var(--surface-2);">
+          <div class="form-grid">
+            <div class="field"><label for="qt-nc-name">Nome *</label><input id="qt-nc-name" type="text" /></div>
+            <div class="field"><label for="qt-nc-phone">Telefone</label><input id="qt-nc-phone" type="text" /></div>
+            <button type="button" class="btn btn-small" id="qt-nc-save">Salvar cliente</button>
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:0.6rem;" id="qt-project-area" ${presetCustomer ? '' : 'hidden'}>
+          <div class="field" style="flex-basis:260px;">
+            <label for="qt-project-select">Obra *</label>
+            <select id="qt-project-select"><option value="">Selecione…</option></select>
+          </div>
+          <button type="button" class="btn btn-ghost btn-small" id="qt-new-project-toggle">+ Obra nova</button>
+        </div>
+        <div class="form-box" id="qt-new-project-box" hidden style="background:var(--surface-2);">
+          <div class="form-grid">
+            <div class="field"><label for="qt-np-name">Nome da obra *</label><input id="qt-np-name" type="text" /></div>
+            <div class="field"><label for="qt-np-address">Endereço</label><input id="qt-np-address" type="text" /></div>
+            <div class="field"><label for="qt-np-status">Status</label>
+              <select id="qt-np-status">${enumOptions(PROJECT_STATUS, 'LEVANTAMENTO')}</select>
+            </div>
+            <button type="button" class="btn btn-small" id="qt-np-save">Salvar obra</button>
+          </div>
+        </div>
+
+        <form class="form-grid" id="quote-form">
+          <div class="field"><label for="qt-status">Status do orçamento</label>
+            <select id="qt-status">${enumOptions(QUOTE_STATUS, 'RASCUNHO')}</select>
           </div>
           <button class="btn" type="submit">Criar orçamento</button>
         </form>
@@ -630,15 +669,105 @@
       </div>
     `;
 
+    let selectedCustomerId = presetCustomer ? presetCustomer.id : null;
+    let selectedProjectId = presetProject ? presetProject.id : null;
+    const errBox = document.getElementById('quote-form-error');
+
+    async function loadProjectsForCustomer(customerId, preselectId) {
+      const custProjects = await api(`/projetos?customer_id=${customerId}`);
+      const sel = document.getElementById('qt-project-select');
+      sel.innerHTML = `<option value="">Selecione…</option>${optionsFrom(custProjects, 'id', 'name', preselectId)}`;
+      document.getElementById('qt-project-area').hidden = false;
+      selectedProjectId = preselectId || null;
+    }
+
+    if (presetCustomer) {
+      loadProjectsForCustomer(presetCustomer.id, presetProject.id);
+    }
+
+    document.getElementById('qt-customer-search').addEventListener('change', async (ev) => {
+      errBox.innerHTML = '';
+      const name = ev.target.value.trim();
+      const match = customers.find((c) => c.name.toLowerCase() === name.toLowerCase());
+      document.getElementById('qt-new-customer-box').hidden = true;
+      if (match) {
+        selectedCustomerId = match.id;
+        await loadProjectsForCustomer(match.id);
+      } else {
+        selectedCustomerId = null;
+        selectedProjectId = null;
+        document.getElementById('qt-project-area').hidden = true;
+      }
+    });
+
+    document.getElementById('qt-new-customer-toggle').addEventListener('click', () => {
+      const box = document.getElementById('qt-new-customer-box');
+      box.hidden = !box.hidden;
+      if (!box.hidden) {
+        document.getElementById('qt-nc-name').value = document.getElementById('qt-customer-search').value;
+      }
+    });
+
+    document.getElementById('qt-nc-save').addEventListener('click', async () => {
+      errBox.innerHTML = '';
+      const name = document.getElementById('qt-nc-name').value.trim();
+      if (!name) return;
+      try {
+        const customer = await apiPost('/clientes', {
+          name,
+          phone: document.getElementById('qt-nc-phone').value || null,
+        });
+        customers.push(customer);
+        selectedCustomerId = customer.id;
+        document.getElementById('qt-customer-search').value = customer.name;
+        document.getElementById('qt-new-customer-box').hidden = true;
+        await loadProjectsForCustomer(customer.id);
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+
+    document.getElementById('qt-project-select').addEventListener('change', (ev) => {
+      selectedProjectId = ev.target.value ? Number(ev.target.value) : null;
+    });
+
+    document.getElementById('qt-new-project-toggle').addEventListener('click', () => {
+      document.getElementById('qt-new-project-box').hidden = !document.getElementById('qt-new-project-box').hidden;
+    });
+
+    document.getElementById('qt-np-save').addEventListener('click', async () => {
+      errBox.innerHTML = '';
+      if (!selectedCustomerId) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">Escolha ou cadastre o cliente antes de criar a obra.</div>`;
+        return;
+      }
+      const name = document.getElementById('qt-np-name').value.trim();
+      if (!name) return;
+      try {
+        const project = await apiPost('/projetos', {
+          customer_id: selectedCustomerId,
+          name,
+          address: document.getElementById('qt-np-address').value || null,
+          status: document.getElementById('qt-np-status').value,
+        });
+        await loadProjectsForCustomer(selectedCustomerId, project.id);
+        document.getElementById('qt-new-project-box').hidden = true;
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+
     document.getElementById('quote-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      const data = new FormData(ev.target);
-      const errBox = document.getElementById('quote-form-error');
       errBox.innerHTML = '';
+      if (!selectedProjectId) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">Escolha (ou cadastre) a obra antes de criar o orçamento.</div>`;
+        return;
+      }
       try {
         const quote = await apiPost('/orcamentos', {
-          project_id: Number(data.get('project_id')),
-          status: data.get('status'),
+          project_id: selectedProjectId,
+          status: document.getElementById('qt-status').value,
           total_value: 0,
         });
         window.location.hash = `#/orcamentos/${quote.id}`;
