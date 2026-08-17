@@ -136,6 +136,8 @@ com SQLite em memória (mesmo padrão do `ProductionReleaseValidatorTest`).
 | Comercial | `/clientes`, `/fornecedores`, `/vendedores`, `/tabelas-preco`, `/tabelas-preco-itens`, `/projetos`, `/ambientes`, `/vaos`, `/orcamentos`, `/orcamentos-itens`, `/pedidos-venda`, `/pedidos-venda-itens` |
 | Estoque/compras | `/materiais`, `/depositos`, `/reservas-estoque`, `/pedidos-compra`, `/pedidos-compra-itens` (leitura: `/saldos-estoque?material_id=&warehouse_id=`) |
 | Financeiro | `/lancamentos-financeiros` (`entry_type`: `RECEITA`/`DESPESA`; `status`: `PENDENTE`/`PAGO`/`CANCELADO`; filtros `?project_id=&status=&entry_type=`) |
+| Vidro/acessórios (catálogo) | `/vidros` (CRUD completo — tipos de vidro são dado operacional, não exigem citação de página como perfil); `/acessorios` (só leitura, catálogo extraído de fonte) |
+| Acessórios do orçamento | `/orcamentos-acessorios` (lista avulsa por orçamento — `quote_id`, `accessory_id` opcional, `description`, `quantity`; não há vínculo automático fórmula/tipologia → ferragens ainda) |
 | Produção | `/ordens-producao`, `/listas-corte`, `/listas-corte-itens`, `/listas-vidro`, `/listas-acessorios`, `/planos-otimizacao`, `/planos-otimizacao-itens`, `/etapas-producao` (leitura: `/historico-status-producao?production_order_item_id=`) |
 | Qualidade | `/prototipos`, `/prototipos-componentes`, `/prototipos-medicoes`, `/validacoes`, `/checklists-inspecao`, `/resultados-inspecao`, `/nao-conformidades`, `/acoes-corretivas`, `/aprovacoes-tecnicas`, `/desenhos-tecnicos` (leitura apenas: `/auditoria`) |
 
@@ -176,6 +178,34 @@ Troca `production_order_items.status_code` e grava uma linha em
 como `PENDENTE`, `VALIDADO`, `APROVADO`, `BLOQUEADO`), não um enum de workflow de
 produção próprio; o andamento etapa-a-etapa (corte, usinagem, montagem...) é
 `/etapas-producao`, que tem seu próprio enum de status.
+
+### Itens de orçamento: medidas, m² e vão fora de esquadro
+
+`quote_items` aceita opcionalmente `formula_version_id`, `glass_type_id`, `width_mm`,
+`width_mm_2`, `height_mm`, `height_mm_2` e `pricing_unit` (`UN` ou `M2`). Quando o vão
+está fora de esquadro, informe as duas larguras e as duas alturas medidas — todo
+cálculo (m², relatório de compras, têmpera) usa sempre a **maior largura × maior
+altura** das informadas, nunca a média (regra explícita do usuário). Com
+`pricing_unit=M2`, `unit_price` é interpretado como R$/m² e o total esperado é
+`quantity × area_m2 × unit_price` — quem calcula e valida isso é o frontend antes de
+enviar; a API não recalcula `total_price` sozinha.
+
+### `GET /orcamentos/{id}/relatorio-compras`
+Agrega, a partir dos itens do orçamento, quanto precisa comprar de:
+- **Perfis**: só para itens com `formula_version_id` + largura/altura preenchidas.
+  Calcula via `FormulaCalculationService` em modo estimativa (`requireReleased=false`)
+  — funciona mesmo com fórmula ainda `PENDENTE`, mas cada perfil retorna
+  `estimativa_formula_nao_liberada: true` nesse caso, pra deixar claro que o número
+  não passou pelo checklist de liberação (`App\Services\QuoteReportService`).
+- **Vidro**: só para itens com `glass_type_id` + largura/altura, agregado por tipo
+  (área total em m², maior largura × maior altura de cada item).
+- **Acessórios**: soma de `quote_accessories` do orçamento, por descrição.
+
+### `GET /orcamentos/{id}/relatorio-tempera`
+Lista itemizada (não agregada) de toda peça de vidro do orçamento cujo
+`glass_types.glass_category = 'TEMPERADO'`, com a medida final (maior largura ×
+maior altura) — pronta pra mandar pra têmpera, já que vidro temperado não pode ser
+cortado depois.
 
 ## Próximos passos sugeridos (fora do escopo desta fase)
 

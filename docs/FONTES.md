@@ -167,6 +167,31 @@ para fechar.
   imagem em si não existe mais. Se for necessário no futuro, as páginas podem ser
   reexportadas dos PDFs originais (fontes 5-7) pela página citada em cada perfil.
 
+## Pendências abertas em 2026-08-17 (a pedido do usuário)
+
+- **Desenhos técnicos dos perfis (`technical_drawings`)**: usuário pediu para
+  reexportar dos PDFs originais (ainda disponíveis) as imagens de página e associar
+  a cada `profiles.id` pela `page_number` já cadastrada — mesma ideia das 93 imagens
+  do Gold III removidas em 2026-08-16, agora estendida a todos os catálogos com
+  página citada (Ecoline 2.5, UNNION, Gold III, Alcoa/Módulo Prático/Suprema).
+  Ainda **não iniciado nesta rodada** por volume de trabalho — é a próxima tarefa.
+- **Tipologias de vidro temperado com ferragem** (ex: kits de porta/box temperado
+  usando o catálogo de ferragens AL Indústria): **não existem** hoje em
+  `typologies` nem fórmula ligando kit+ferragem+vidro — só o catálogo de acessórios
+  (149 itens) e os perfis dos kits de alumínio da AL Indústria estão cadastrados.
+  Aguardando o usuário fornecer a lista de tipologias para cadastro (nenhuma foi
+  inventada).
+- **`glass_types` tem só 1 linha cadastrada** (a de referência do Asa Flex, ainda
+  `PENDENTE`) mais 1 criada manualmente via API em teste (`Temperado 8mm`,
+  `CATALOGADO`). Ao contrário de perfil/acessório, `glass_types` agora tem CRUD
+  aberto pela API (`/vidros`) porque é dado operacional simples (nome/espessura/
+  categoria), não uma especificação proprietária extraída de catálogo — o usuário
+  pode cadastrar os tipos de vidro que usa direto pela interface.
+- **Vínculo fórmula/tipologia → acessórios não existe** (nenhuma tabela liga
+  `formulas`/`typologies` a `accessories`). Por decisão do usuário, o relatório de
+  compras trata acessórios como lista avulsa por orçamento (`quote_accessories`),
+  não como algo derivado automaticamente da fórmula.
+
 ## Import pendente: guias gerais Hydro + CEHOP
 
 O conteúdo já foi extraído (normas NBR citadas, checklist de manutenção Anexo I,

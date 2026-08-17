@@ -777,30 +777,53 @@
     });
   }
 
+  function maxOf(a, b) {
+    const vals = [a, b].filter((v) => v !== null && v !== undefined && v !== '');
+    if (vals.length === 0) return null;
+    return Math.max(...vals.map(Number));
+  }
+
+  function lineAreaM2(item) {
+    const w = maxOf(item.width_mm, item.width_mm_2);
+    const h = maxOf(item.height_mm, item.height_mm_2);
+    if (w === null || h === null) return null;
+    return (w / 1000) * (h / 1000) * Number(item.quantity || 1);
+  }
+
   async function viewOrcamentoDetail(id) {
     setLoading('orçamento');
     try {
-      const [quote, items] = await Promise.all([
+      const [quote, items, accessories, formulas, glassTypes] = await Promise.all([
         api(`/orcamentos/${id}`),
         api(`/orcamentos-itens?quote_id=${id}`),
+        api(`/orcamentos-acessorios?quote_id=${id}`),
+        api('/formulas'),
+        api('/vidros'),
       ]);
       const project = await api(`/projetos/${quote.project_id}`).catch(() => null);
-      renderOrcamentoDetail(quote, items, project);
+      renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes);
     } catch (err) {
       setError(err);
     }
   }
 
-  function renderOrcamentoDetail(quote, items, project) {
-    const rows = items.map((it) => `
+  function renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes) {
+    const rows = items.map((it) => {
+      const area = lineAreaM2(it);
+      return `
       <tr>
         <td class="wrap">${esc(it.description)}</td>
+        <td>${area !== null ? fmtNum(area, 2) + ' m²' : '—'}</td>
         <td class="num">${esc(it.quantity)}</td>
-        <td class="num">${fmtMoney(it.unit_price)}</td>
+        <td class="num">${fmtMoney(it.unit_price)}${it.pricing_unit === 'M2' ? '/m²' : ''}</td>
         <td class="num">${fmtMoney(it.total_price)}</td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
     const total = items.reduce((sum, it) => sum + Number(it.total_price || 0), 0);
+
+    const accessoryRows = accessories.map((a) => `
+      <tr><td class="wrap">${esc(a.description)}</td><td class="num">${esc(a.quantity)}</td></tr>
+    `).join('');
 
     app.innerHTML = `
       <p><a href="#/orcamentos" class="btn-ghost">&larr; Voltar para orçamentos</a></p>
@@ -812,40 +835,129 @@
         ${statusPillForData(quote.status)}
       </div>
 
+      <div class="form-grid" style="margin-bottom:1.2rem;">
+        <a href="#/orcamentos/${quote.id}/imprimir" class="btn btn-ghost btn-small" style="text-decoration:none;">Imprimir</a>
+        <a href="#/orcamentos/${quote.id}/compras" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de compras</a>
+        <a href="#/orcamentos/${quote.id}/tempera" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de têmpera</a>
+      </div>
+
       <div class="section-title">Itens do orçamento (${items.length})</div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted)">Sem itens ainda.</td></tr>'}</tbody>
-          <tfoot><tr><td colspan="3" style="text-align:right;font-weight:600;">Total</td><td class="num" style="font-weight:600;">${fmtMoney(total)}</td></tr></tfoot>
+          <thead><tr><th>Descrição</th><th>M²</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="color:var(--text-muted)">Sem itens ainda.</td></tr>'}</tbody>
+          <tfoot><tr><td colspan="4" style="text-align:right;font-weight:600;">Total</td><td class="num" style="font-weight:600;">${fmtMoney(total)}</td></tr></tfoot>
         </table>
       </div>
 
       <div class="form-box" style="margin-top:1.2rem;">
-        <form class="form-grid" id="quote-item-form">
-          <div class="field" style="flex-basis:220px;"><label for="qi-desc">Descrição *</label><input id="qi-desc" name="description" type="text" required /></div>
-          <div class="field"><label for="qi-qty">Quantidade</label><input id="qi-qty" name="quantity" type="number" min="1" value="1" /></div>
-          <div class="field"><label for="qi-price">Valor unitário (R$)</label><input id="qi-price" name="unit_price" type="number" step="0.01" min="0" value="0" /></div>
-          <button class="btn" type="submit">Adicionar item</button>
+        <form id="quote-item-form">
+          <div class="form-grid" style="margin-bottom:0.7rem;">
+            <div class="field" style="flex-basis:220px;"><label for="qi-desc">Descrição *</label><input id="qi-desc" type="text" required /></div>
+            <div class="field"><label for="qi-formula">Fórmula (opcional)</label>
+              <select id="qi-formula"><option value="">—</option>${optionsFrom(formulas.filter((f) => f.current_version_id), 'current_version_id', 'name')}</select>
+            </div>
+            <div class="field"><label for="qi-glass">Vidro (opcional)</label>
+              <select id="qi-glass"><option value="">—</option>${optionsFrom(glassTypes, 'id', 'name')}</select>
+            </div>
+            <div class="field"><label for="qi-pricing">Tipo de preço</label>
+              <select id="qi-pricing"><option value="UN">Valor fechado (R$)</option><option value="M2">Por m² (R$/m²)</option></select>
+            </div>
+          </div>
+          <div class="form-grid" style="margin-bottom:0.4rem;">
+            <div class="field"><label for="qi-w1">Largura 1 (mm)</label><input id="qi-w1" type="number" step="1" /></div>
+            <div class="field"><label for="qi-w2">Largura 2 (mm, se fora de esquadro)</label><input id="qi-w2" type="number" step="1" /></div>
+            <div class="field"><label for="qi-h1">Altura 1 (mm)</label><input id="qi-h1" type="number" step="1" /></div>
+            <div class="field"><label for="qi-h2">Altura 2 (mm, se fora de esquadro)</label><input id="qi-h2" type="number" step="1" /></div>
+          </div>
+          <p id="qi-area-preview" style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.7rem;"></p>
+          <div class="form-grid">
+            <div class="field"><label for="qi-qty">Quantidade</label><input id="qi-qty" type="number" min="1" value="1" /></div>
+            <div class="field"><label for="qi-price" id="qi-price-label">Valor unitário (R$)</label><input id="qi-price" type="number" step="0.01" min="0" value="0" /></div>
+            <button class="btn" type="submit">Adicionar item</button>
+          </div>
         </form>
         <div id="quote-item-form-error"></div>
       </div>
+
+      <div class="section-title">Acessórios do orçamento (${accessories.length})</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Descrição</th><th>Qtd.</th></tr></thead>
+          <tbody>${accessoryRows || '<tr><td colspan="2" style="color:var(--text-muted)">Nenhum acessório lançado ainda.</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="form-box" style="margin-top:0.7rem;">
+        <form class="form-grid" id="quote-accessory-form">
+          <div class="field" style="flex-basis:220px;"><label for="qa-desc">Descrição *</label><input id="qa-desc" type="text" placeholder="ex: Dobradiça inox 3'" required /></div>
+          <div class="field"><label for="qa-qty">Quantidade</label><input id="qa-qty" type="number" min="0.01" step="0.01" value="1" /></div>
+          <button class="btn" type="submit">Adicionar acessório</button>
+        </form>
+        <div id="quote-accessory-form-error"></div>
+      </div>
     `;
+
+    function updatePriceLabelAndPreview() {
+      const pricing = document.getElementById('qi-pricing').value;
+      document.getElementById('qi-price-label').textContent = pricing === 'M2' ? 'Valor por m² (R$/m²)' : 'Valor unitário (R$)';
+      const w = maxOf(numOrNull('qi-w1'), numOrNull('qi-w2'));
+      const h = maxOf(numOrNull('qi-h1'), numOrNull('qi-h2'));
+      const preview = document.getElementById('qi-area-preview');
+      if (w !== null && h !== null) {
+        preview.textContent = `Medida usada no cálculo: ${fmtNum(w, 0)} x ${fmtNum(h, 0)} mm (maior largura x maior altura) = ${fmtNum((w / 1000) * (h / 1000), 2)} m² por unidade.`;
+      } else {
+        preview.textContent = '';
+      }
+    }
+
+    function numOrNull(id) {
+      const v = document.getElementById(id).value;
+      return v === '' ? null : Number(v);
+    }
+
+    ['qi-pricing', 'qi-w1', 'qi-w2', 'qi-h1', 'qi-h2'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', updatePriceLabelAndPreview);
+    });
 
     document.getElementById('quote-item-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      const data = new FormData(ev.target);
       const errBox = document.getElementById('quote-item-form-error');
       errBox.innerHTML = '';
-      const quantity = Number(data.get('quantity') || 1);
-      const unitPrice = Number(data.get('unit_price') || 0);
+      const quantity = Number(document.getElementById('qi-qty').value || 1);
+      const price = Number(document.getElementById('qi-price').value || 0);
+      const pricingUnit = document.getElementById('qi-pricing').value;
+      const width = numOrNull('qi-w1');
+      const width2 = numOrNull('qi-w2');
+      const height = numOrNull('qi-h1');
+      const height2 = numOrNull('qi-h2');
+
+      let totalPrice;
+      if (pricingUnit === 'M2') {
+        const w = maxOf(width, width2);
+        const h = maxOf(height, height2);
+        if (w === null || h === null) {
+          errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">Preço por m² exige largura e altura preenchidas.</div>`;
+          return;
+        }
+        totalPrice = quantity * (w / 1000) * (h / 1000) * price;
+      } else {
+        totalPrice = quantity * price;
+      }
+
       try {
         await apiPost('/orcamentos-itens', {
           quote_id: quote.id,
-          description: data.get('description'),
+          description: document.getElementById('qi-desc').value,
+          formula_version_id: document.getElementById('qi-formula').value || null,
+          glass_type_id: document.getElementById('qi-glass').value || null,
+          pricing_unit: pricingUnit,
+          width_mm: width,
+          width_mm_2: width2,
+          height_mm: height,
+          height_mm_2: height2,
           quantity,
-          unit_price: unitPrice,
-          total_price: quantity * unitPrice,
+          unit_price: price,
+          total_price: totalPrice,
         });
         const freshItems = await api(`/orcamentos-itens?quote_id=${quote.id}`);
         const newTotal = freshItems.reduce((sum, it) => sum + Number(it.total_price || 0), 0);
@@ -855,6 +967,172 @@
         errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
       }
     });
+
+    document.getElementById('quote-accessory-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const errBox = document.getElementById('quote-accessory-form-error');
+      errBox.innerHTML = '';
+      try {
+        await apiPost('/orcamentos-acessorios', {
+          quote_id: quote.id,
+          description: document.getElementById('qa-desc').value,
+          quantity: Number(document.getElementById('qa-qty').value || 1),
+        });
+        viewOrcamentoDetail(quote.id);
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
+  async function viewOrcamentoCompras(id) {
+    setLoading('relatório de compras');
+    try {
+      const report = await api(`/orcamentos/${id}/relatorio-compras`);
+      renderOrcamentoCompras(id, report);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentoCompras(id, report) {
+    const profileRows = report.profiles.map((p) => `
+      <tr>
+        <td class="mono">${esc(p.profile_code || '—')}</td>
+        <td class="wrap">${esc(p.profile_name || '—')}</td>
+        <td class="num">${fmtNum(p.total_length_m, 2)} m</td>
+        <td>${p.estimativa_formula_nao_liberada ? '<span class="chip warn">estimativa (fórmula não liberada)</span>' : '<span class="chip ok">fórmula liberada</span>'}</td>
+      </tr>
+    `).join('');
+    const glassRows = report.glass.map((g) => `
+      <tr>
+        <td class="wrap">${esc(g.glass_type || '—')}</td>
+        <td>${esc(g.glass_category || '—')}</td>
+        <td>${g.thickness_mm ? fmtNum(g.thickness_mm, 1) + ' mm' : '—'}</td>
+        <td class="num">${fmtNum(g.total_area_m2, 2)} m²</td>
+      </tr>
+    `).join('');
+    const accessoryRows = report.accessories.map((a) => `
+      <tr><td class="wrap">${esc(a.description)}</td><td class="num">${fmtNum(a.total_quantity, 2)}</td></tr>
+    `).join('');
+
+    app.innerHTML = `
+      <p><a href="#/orcamentos/${id}" class="btn-ghost">&larr; Voltar para o orçamento</a></p>
+      <div class="page-head">
+        <h1>Relatório de compras — Orçamento #${id}</h1>
+        <p>Perfis calculados a partir da fórmula e das medidas de cada item (maior largura x maior altura).
+        Itens marcados como estimativa usam fórmula ainda não liberada para produção — confira antes de comprar.</p>
+      </div>
+
+      <div class="section-title">Perfis (${report.profiles.length})</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Código</th><th>Nome</th><th>Total a comprar</th><th>Origem</th></tr></thead>
+          <tbody>${profileRows || '<tr><td colspan="4" style="color:var(--text-muted)">Nenhum item com fórmula e medida preenchidas.</td></tr>'}</tbody>
+        </table>
+      </div>
+
+      <div class="section-title">Vidros (${report.glass.length})</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Categoria</th><th>Espessura</th><th>Área total</th></tr></thead>
+          <tbody>${glassRows || '<tr><td colspan="4" style="color:var(--text-muted)">Nenhum item com vidro e medida preenchidas.</td></tr>'}</tbody>
+        </table>
+      </div>
+
+      <div class="section-title">Acessórios (${report.accessories.length})</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Descrição</th><th>Qtd.</th></tr></thead>
+          <tbody>${accessoryRows || '<tr><td colspan="2" style="color:var(--text-muted)">Nenhum acessório lançado neste orçamento.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  async function viewOrcamentoTempera(id) {
+    setLoading('relatório de têmpera');
+    try {
+      const pieces = await api(`/orcamentos/${id}/relatorio-tempera`);
+      renderOrcamentoTempera(id, pieces);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentoTempera(id, pieces) {
+    const rows = pieces.map((p) => `
+      <tr>
+        <td class="wrap">${esc(p.description)}</td>
+        <td>${esc(p.glass_type)}</td>
+        <td>${p.thickness_mm ? fmtNum(p.thickness_mm, 1) + ' mm' : '—'}</td>
+        <td class="num">${fmtNum(p.width_mm, 0)} x ${fmtNum(p.height_mm, 0)} mm</td>
+        <td class="num">${esc(p.quantity)}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <p><a href="#/orcamentos/${id}" class="btn-ghost">&larr; Voltar para o orçamento</a></p>
+      <div class="page-head">
+        <h1>Relatório de têmpera — Orçamento #${id}</h1>
+        <p>${pieces.length} peça(s) de vidro temperado (categoria TEMPERADO), medida final já com a maior
+        largura x maior altura de cada item. Lista pronta pra mandar pra têmpera.</p>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Item</th><th>Vidro</th><th>Espessura</th><th>Medida</th><th>Qtd.</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="color:var(--text-muted)">Nenhuma peça de vidro temperado neste orçamento.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  async function viewOrcamentoImprimir(id) {
+    setLoading('orçamento para impressão');
+    try {
+      const [quote, items] = await Promise.all([
+        api(`/orcamentos/${id}`),
+        api(`/orcamentos-itens?quote_id=${id}`),
+      ]);
+      const project = await api(`/projetos/${quote.project_id}`).catch(() => null);
+      const customer = project ? await api(`/clientes/${project.customer_id}`).catch(() => null) : null;
+      renderOrcamentoImprimir(quote, items, project, customer);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentoImprimir(quote, items, project, customer) {
+    const rows = items.map((it) => {
+      const area = lineAreaM2(it);
+      return `
+      <tr>
+        <td class="wrap">${esc(it.description)}</td>
+        <td>${area !== null ? fmtNum(area, 2) + ' m²' : '—'}</td>
+        <td class="num">${esc(it.quantity)}</td>
+        <td class="num">${fmtMoney(it.total_price)}</td>
+      </tr>`;
+    }).join('');
+    const total = items.reduce((sum, it) => sum + Number(it.total_price || 0), 0);
+
+    app.innerHTML = `
+      <div class="no-print" style="margin-bottom:1rem;display:flex;gap:0.6rem;">
+        <a href="#/orcamentos/${quote.id}" class="btn-ghost">&larr; Voltar</a>
+        <button class="btn" id="btn-imprimir">Imprimir</button>
+      </div>
+      <div class="print-sheet">
+        <h1>Orçamento #${quote.id}</h1>
+        <p><strong>Cliente:</strong> ${esc(customer ? customer.name : '—')}</p>
+        <p><strong>Obra:</strong> ${esc(project ? project.name : '—')}${project && project.address ? ' — ' + esc(project.address) : ''}</p>
+        <p><strong>Data:</strong> ${esc((quote.created_at || '').slice(0, 10))}</p>
+        <table>
+          <thead><tr><th>Descrição</th><th>Metragem</th><th>Qtd.</th><th>Valor</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr><td colspan="3" style="text-align:right;font-weight:600;">Total</td><td class="num" style="font-weight:600;">${fmtMoney(total)}</td></tr></tfoot>
+        </table>
+      </div>
+    `;
+    document.getElementById('btn-imprimir').addEventListener('click', () => window.print());
   }
 
   // --- Financeiro --------------------------------------------------------
@@ -1330,6 +1608,18 @@
     if (segments[0] === 'obras') {
       setActiveNav('obras');
       return viewObras();
+    }
+    if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'compras') {
+      setActiveNav('orcamentos');
+      return viewOrcamentoCompras(segments[1]);
+    }
+    if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'tempera') {
+      setActiveNav('orcamentos');
+      return viewOrcamentoTempera(segments[1]);
+    }
+    if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'imprimir') {
+      setActiveNav('orcamentos');
+      return viewOrcamentoImprimir(segments[1]);
     }
     if (segments[0] === 'orcamentos' && segments[1]) {
       setActiveNav('orcamentos');

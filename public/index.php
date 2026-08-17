@@ -11,6 +11,7 @@ use App\Controllers\GoodsReceiptController;
 use App\Controllers\ManufacturerController;
 use App\Controllers\ProductionOrderItemController;
 use App\Controllers\ProfileController;
+use App\Controllers\QuoteReportController;
 use App\Controllers\StockMovementController;
 use App\Controllers\Support\CrudController;
 use App\Http\Request;
@@ -69,6 +70,9 @@ $router->get('/fabricantes', [new ManufacturerController($db), 'index']);
 $router->get('/perfis', [new ProfileController($db), 'index']);
 $router->get('/perfis/{id}', [new ProfileController($db), 'show']);
 $registerCrud($router, '/tipologias', new CrudController($db, 'typologies', ['name', 'category', 'has_baguete', 'is_common_in_brazil'], ['category']));
+$registerCrud($router, '/vidros', new CrudController($db, 'glass_types', ['name', 'thickness_mm', 'glass_category', 'notes', 'status_code'], ['glass_category']));
+$router->get('/acessorios', [new CrudController($db, 'accessories', [], ['category', 'manufacturer_id']), 'index']);
+$router->get('/acessorios/{id}', [new CrudController($db, 'accessories', [], ['category', 'manufacturer_id']), 'show']);
 $router->get('/formulas', [new FormulaController($db), 'index']);
 $router->get('/formulas/{id}', [new FormulaController($db), 'show']);
 $router->get('/formulas/{id}/checklist-producao', [new FormulaController($db), 'checklist']);
@@ -85,7 +89,13 @@ $registerCrud($router, '/projetos', new CrudController($db, 'projects', ['custom
 $registerCrud($router, '/ambientes', new CrudController($db, 'environments', ['project_id', 'name', 'notes'], ['project_id']));
 $registerCrud($router, '/vaos', new CrudController($db, 'openings', ['environment_id', 'typology_id', 'width_mm', 'height_mm', 'quantity', 'notes'], ['environment_id']));
 $registerCrud($router, '/orcamentos', new CrudController($db, 'quotes', ['project_id', 'seller_id', 'status', 'total_value'], ['project_id', 'status']));
-$registerCrud($router, '/orcamentos-itens', new CrudController($db, 'quote_items', ['quote_id', 'opening_id', 'formula_version_id', 'description', 'quantity', 'unit_price', 'total_price'], ['quote_id']));
+$registerCrud($router, '/orcamentos-itens', new CrudController($db, 'quote_items', [
+    'quote_id', 'opening_id', 'formula_version_id', 'description', 'quantity', 'unit_price', 'total_price',
+    'width_mm', 'width_mm_2', 'height_mm', 'height_mm_2', 'glass_type_id', 'pricing_unit',
+], ['quote_id']));
+$registerCrud($router, '/orcamentos-acessorios', new CrudController($db, 'quote_accessories', ['quote_id', 'accessory_id', 'description', 'quantity'], ['quote_id']));
+$router->get('/orcamentos/{id}/relatorio-compras', [new QuoteReportController($db), 'purchaseReport']);
+$router->get('/orcamentos/{id}/relatorio-tempera', [new QuoteReportController($db), 'temperingReport']);
 $registerCrud($router, '/pedidos-venda', new CrudController($db, 'sales_orders', ['quote_id', 'project_id', 'status', 'total_value'], ['project_id', 'status']));
 $registerCrud($router, '/pedidos-venda-itens', new CrudController($db, 'sales_order_items', ['sales_order_id', 'description', 'quantity', 'unit_price', 'total_price'], ['sales_order_id']));
 

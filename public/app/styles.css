@@ -319,6 +319,26 @@ td.wrap { white-space: normal; min-width: 220px; }
 .stat-tile.ok .value { color: var(--ok); }
 .stat-tile.danger .value { color: var(--danger); }
 
+/* --- Folha de impressão do orçamento --- */
+.print-sheet {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.6rem 1.8rem;
+  max-width: 720px;
+}
+.print-sheet h1 { font-size: 1.2rem; margin: 0 0 1rem; }
+.print-sheet p { margin: 0.2rem 0; font-size: 0.9rem; }
+.print-sheet table { width: 100%; border-collapse: collapse; margin-top: 1.2rem; font-size: 0.88rem; }
+.print-sheet th, .print-sheet td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
+.print-sheet th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+
+@media print {
+  .topbar, .footer, .no-print { display: none !important; }
+  body, .page { padding: 0; margin: 0; }
+  .print-sheet { border: none; padding: 0; max-width: 100%; }
+}
+
 .footer {
   border-top: 1px solid var(--border);
   padding: 1.1rem 1.25rem;

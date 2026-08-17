@@ -11,7 +11,7 @@ projeto segue e `docs/API.md` para a lista completa de endpoints.
 
 - **Backend**: PHP 8.1+ puro (sem framework, sem Composer obrigatório em produção) — compatível com hospedagem compartilhada HostGator/cPanel.
 - **Banco**: MySQL 5.7+/MariaDB 10.3+ (mesmo servidor da hospedagem do domínio).
-- **Frontend**: SPA estática (HTML/CSS/JS puro, sem build) em `public/app/`, servida no mesmo domínio da API, com tela de login. Cobre: catálogo técnico (fabricantes, perfis, fórmulas com checklist de liberação e calculadora), tipologias, criação de fórmula nova, clientes, obras, orçamentos (com itens), financeiro básico (lançamentos de receita/despesa) e relatório de materiais a comprar (estoque abaixo do mínimo). Estoque/compras/produção/qualidade em si ainda não têm tela própria além do que foi listado — só a API (ver `docs/API.md`).
+- **Frontend**: SPA estática (HTML/CSS/JS puro, sem build) em `public/app/`, servida no mesmo domínio da API, com tela de login. Cobre: catálogo técnico (fabricantes, perfis, fórmulas com checklist de liberação e calculadora), tipologias, criação de fórmula nova, clientes, obras, orçamentos (com itens ligados a fórmula/vidro, preço fechado ou por m², vão fora de esquadro usando sempre a maior largura × maior altura, acessórios avulsos, relatório de compras, relatório de têmpera e impressão sem mostrar largura×altura — só a metragem), financeiro básico (lançamentos de receita/despesa) e relatório de materiais a comprar (estoque abaixo do mínimo). Estoque/compras/produção/qualidade em si ainda não têm tela própria além do que foi listado — só a API (ver `docs/API.md`).
 - **Autenticação**: sessão por cookie (`App\Support\Auth`), toda rota exige login exceto `/` e `/auth/login`. Ver `docs/API.md#autenticação`.
 
 ## Estrutura

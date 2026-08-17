@@ -24,9 +24,14 @@ final class FormulaCalculationService
 
     /**
      * @param array<string, float> $variables ex: ['L' => 1200.0, 'A' => 1000.0, 'N' => 2, 'E' => 6, 'P' => 0]
+     * @param bool $requireReleased Se true (padrão -- usado pela calculadora de produção e por
+     *        /formulas/{id}/calcular), recusa calcular fórmula bloqueada. Se false (usado só pelo
+     *        relatório de compras do orçamento, que é uma estimativa de material, não uma ordem de
+     *        corte), calcula mesmo fórmula ainda PENDENTE -- o chamador é responsável por deixar
+     *        claro pro usuário que o número é uma estimativa não conferida.
      * @return array{formula_version_id: int, components: list<array<string, mixed>>}
      */
-    public function calculate(int $formulaVersionId, array $variables): array
+    public function calculate(int $formulaVersionId, array $variables, bool $requireReleased = true): array
     {
         $versionStmt = $this->db->prepare('SELECT * FROM formula_versions WHERE id = ?');
         $versionStmt->execute([$formulaVersionId]);
@@ -35,7 +40,7 @@ final class FormulaCalculationService
             throw new SafeFormulaException("formula_version {$formulaVersionId} não encontrada.");
         }
 
-        if ((bool) $version['production_locked'] && $version['status_code'] !== 'LIBERADO_PRODUCAO') {
+        if ($requireReleased && (bool) $version['production_locked'] && $version['status_code'] !== 'LIBERADO_PRODUCAO') {
             throw new SafeFormulaException(
                 "Esta versão de fórmula está bloqueada para uso produtivo (status: {$version['status_code']}). " .
                 'Complete o checklist da seção 13 antes de calcular para produção.'
