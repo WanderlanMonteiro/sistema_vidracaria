@@ -59,9 +59,10 @@ Lista perfis (máx. 200 por chamada). Filtros via query string:
 Detalhe de um perfil, incluindo fabricante, linha e a citação de fonte (`source_title`,
 `page_number`, `source_url`).
 
-## `GET /tipologias`
-Lista as tipologias cadastradas (Correr, Giro, Maxim-Ar, Oscilobatente, Pivotante,
-Ribanta, Camarão, Guilhotina, Basculante — ver Livro 5, p.13).
+## Tipologias
+CRUD completo (`GET`/`GET {id}`/`POST`/`PUT {id}`/`DELETE {id}`) em `/tipologias`
+via `CrudController` (Correr, Giro, Maxim-Ar, Oscilobatente, Pivotante, Ribanta,
+Camarão, Guilhotina, Basculante — ver Livro 5, p.13). Filtro: `?category=`.
 
 ## `GET /formulas`
 Lista fórmulas com o status da versão atual (`version_status`, `production_locked`).
@@ -79,6 +80,35 @@ Executa `ProductionReleaseValidator::check()` e retorna:
   "pending": ["prototipo_aprovado", "..."]
 }
 ```
+
+## `POST /formulas`
+Cria uma fórmula nova com sua primeira versão e componentes, em uma única transação
+(`App\Services\FormulaBuilderService`). Nasce **sempre `PENDENTE` e com
+`production_locked = 1`** — criar pelo formulário não libera nada para produção; a
+liberação continua exigindo o checklist completo da seção 13 (protótipo aprovado,
+validações, aprovação técnica etc. — ver `GET /formulas/{id}/checklist-producao`).
+```json
+{
+  "name": "Janela de correr 2 folhas",
+  "typology_id": 1,
+  "product_line_id": 3,
+  "description": "opcional",
+  "rounding_mode": "ROUND",
+  "components": [
+    { "component_role": "MARCO", "quantity": 2, "expression": "L - 10", "profile_id": 12 },
+    { "component_role": "FOLHA_LARGURA", "quantity": 2, "expression": "(L / 2) + 20" }
+  ],
+  "deductions": [
+    { "deduction_type": "DESCONTO", "value_mm": 10, "description": "encaixe do marco" }
+  ]
+}
+```
+`expression` é opcional por componente (ex: vidro cortado à parte fica sem expressão)
+e é validada sintaticamente pelo interpretador seguro no momento da criação — uma
+expressão malformada retorna 422 e **nada é gravado** (transação revertida). Não há
+endpoint de liberação pela API de propósito: a transição para `LIBERADO_PRODUCAO`
+continua sendo uma decisão humana explícita, registrada via `/prototipos`,
+`/validacoes` e `/aprovacoes-tecnicas` (todas já expostas pela API).
 
 ## `POST /formulas/{id}/calcular`
 Corpo JSON com as variáveis do interpretador seguro:
@@ -105,6 +135,7 @@ com SQLite em memória (mesmo padrão do `ProductionReleaseValidatorTest`).
 |---|---|
 | Comercial | `/clientes`, `/fornecedores`, `/vendedores`, `/tabelas-preco`, `/tabelas-preco-itens`, `/projetos`, `/ambientes`, `/vaos`, `/orcamentos`, `/orcamentos-itens`, `/pedidos-venda`, `/pedidos-venda-itens` |
 | Estoque/compras | `/materiais`, `/depositos`, `/reservas-estoque`, `/pedidos-compra`, `/pedidos-compra-itens` (leitura: `/saldos-estoque?material_id=&warehouse_id=`) |
+| Financeiro | `/lancamentos-financeiros` (`entry_type`: `RECEITA`/`DESPESA`; `status`: `PENDENTE`/`PAGO`/`CANCELADO`; filtros `?project_id=&status=&entry_type=`) |
 | Produção | `/ordens-producao`, `/listas-corte`, `/listas-corte-itens`, `/listas-vidro`, `/listas-acessorios`, `/planos-otimizacao`, `/planos-otimizacao-itens`, `/etapas-producao` (leitura: `/historico-status-producao?production_order_item_id=`) |
 | Qualidade | `/prototipos`, `/prototipos-componentes`, `/prototipos-medicoes`, `/validacoes`, `/checklists-inspecao`, `/resultados-inspecao`, `/nao-conformidades`, `/acoes-corretivas`, `/aprovacoes-tecnicas`, `/desenhos-tecnicos` (leitura apenas: `/auditoria`) |
 

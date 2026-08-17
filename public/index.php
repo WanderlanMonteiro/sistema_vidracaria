@@ -13,7 +13,6 @@ use App\Controllers\ProductionOrderItemController;
 use App\Controllers\ProfileController;
 use App\Controllers\StockMovementController;
 use App\Controllers\Support\CrudController;
-use App\Controllers\TypologyController;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
@@ -69,11 +68,12 @@ $router->put('/auth/senha', [new AuthController($db), 'changePassword']);
 $router->get('/fabricantes', [new ManufacturerController($db), 'index']);
 $router->get('/perfis', [new ProfileController($db), 'index']);
 $router->get('/perfis/{id}', [new ProfileController($db), 'show']);
-$router->get('/tipologias', [new TypologyController($db), 'index']);
+$registerCrud($router, '/tipologias', new CrudController($db, 'typologies', ['name', 'category', 'has_baguete', 'is_common_in_brazil'], ['category']));
 $router->get('/formulas', [new FormulaController($db), 'index']);
 $router->get('/formulas/{id}', [new FormulaController($db), 'show']);
 $router->get('/formulas/{id}/checklist-producao', [new FormulaController($db), 'checklist']);
 $router->post('/formulas/{id}/calcular', [new FormulaController($db), 'calculate']);
+$router->post('/formulas', [new FormulaController($db), 'create']);
 
 // --- Comercial ---
 $registerCrud($router, '/clientes', new CrudController($db, 'customers', ['name', 'document_number', 'phone', 'email', 'address']));
@@ -100,6 +100,14 @@ $registerCrud($router, '/pedidos-compra', new CrudController($db, 'purchase_orde
 $registerCrud($router, '/pedidos-compra-itens', new CrudController($db, 'purchase_order_items', ['purchase_order_id', 'material_id', 'quantity', 'unit_price'], ['purchase_order_id']));
 $router->get('/recebimentos', [new GoodsReceiptController($db), 'index']);
 $router->post('/recebimentos', [new GoodsReceiptController($db), 'create']);
+
+// --- Financeiro ---
+$registerCrud($router, '/lancamentos-financeiros', new CrudController(
+    $db,
+    'financial_entries',
+    ['entry_type', 'category', 'description', 'amount', 'due_date', 'paid_date', 'status', 'project_id', 'purchase_order_id', 'sales_order_id', 'notes'],
+    ['project_id', 'status', 'entry_type']
+));
 
 // --- Produção ---
 $registerCrud($router, '/ordens-producao', new CrudController($db, 'production_orders', ['sales_order_id', 'status', 'priority', 'planned_start', 'planned_end'], ['sales_order_id', 'status']));

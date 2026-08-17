@@ -90,7 +90,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   font-size: 0.95rem;
 }
 .brand-name { font-weight: 600; font-size: 0.98rem; letter-spacing: -0.01em; }
-.topnav { display: flex; gap: 1.4rem; font-size: 0.92rem; flex: 1; }
+.topnav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; font-size: 0.92rem; flex: 1; }
 .topnav a { color: var(--text-muted); font-weight: 500; }
 .topnav a.active { color: var(--accent); }
 
@@ -282,6 +282,42 @@ td.wrap { white-space: normal; min-width: 220px; }
   color: var(--text);
 }
 .calc-locked strong { color: var(--danger); }
+
+/* --- Formulários de cadastro --- */
+.form-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem 1.3rem;
+  margin-bottom: 1.4rem;
+}
+.form-grid { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: flex-end; }
+.form-grid .field { flex: 1 1 160px; }
+.form-grid textarea {
+  font-family: inherit; font-size: 0.9rem; padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface);
+  color: var(--text); width: 100%; min-height: 60px; resize: vertical;
+}
+.component-row {
+  display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-end;
+  padding: 0.7rem 0; border-bottom: 1px dashed var(--border);
+}
+.component-row:last-of-type { border-bottom: none; }
+.component-row .field { flex: 1 1 120px; }
+.btn-small { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
+.btn-danger { border-color: var(--danger); background: transparent; color: var(--danger); }
+.btn-danger:hover { background: var(--danger-soft); }
+
+/* --- Resumo em cards (financeiro) --- */
+.stat-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.stat-tile {
+  flex: 1 1 160px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.9rem 1.1rem;
+}
+.stat-tile .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.stat-tile .value { font-size: 1.35rem; font-weight: 700; margin-top: 0.2rem; font-variant-numeric: tabular-nums; }
+.stat-tile.ok .value { color: var(--ok); }
+.stat-tile.danger .value { color: var(--danger); }
 
 .footer {
   border-top: 1px solid var(--border);

@@ -205,9 +205,12 @@
       const releasedCount = formulas.filter((f) => f.version_status === 'LIBERADO_PRODUCAO' && Number(f.production_locked) === 0).length;
 
       app.innerHTML = `
-        <div class="page-head">
-          <h1>Fórmulas de corte</h1>
-          <p>${releasedCount} de ${formulas.length} liberadas para produção. As demais têm o checklist de liberação detalhado na página de cada uma.</p>
+        <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <h1>Fórmulas de corte</h1>
+            <p>${releasedCount} de ${formulas.length} liberadas para produção. As demais têm o checklist de liberação detalhado na página de cada uma.</p>
+          </div>
+          <a href="#/formulas/nova" class="btn" style="text-decoration:none;">+ Nova fórmula</a>
         </div>
         <div class="tablewrap">
           <table>
@@ -408,6 +411,680 @@
     });
   }
 
+  // --- Helpers comuns a comercial/financeiro ------------------------------
+
+  function fmtMoney(value) {
+    const n = Number(value || 0);
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function todayIso() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function optionsFrom(list, valueKey, labelKey, selected) {
+    return list.map((item) => `
+      <option value="${esc(item[valueKey])}" ${String(item[valueKey]) === String(selected || '') ? 'selected' : ''}>
+        ${esc(item[labelKey])}
+      </option>
+    `).join('');
+  }
+
+  function enumOptions(values, selected) {
+    return values.map((v) => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
+  }
+
+  // --- Clientes ------------------------------------------------------------
+
+  async function viewClientes() {
+    setLoading('clientes');
+    try {
+      const customers = await api('/clientes');
+      renderClientes(customers);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderClientes(customers) {
+    const rows = customers.map((c) => `
+      <tr>
+        <td class="wrap">${esc(c.name)}</td>
+        <td class="mono">${esc(c.document_number || '—')}</td>
+        <td>${esc(c.phone || '—')}</td>
+        <td>${esc(c.email || '—')}</td>
+        <td class="wrap">${esc(c.address || '—')}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Clientes</h1>
+        <p>${customers.length} cliente(s) cadastrado(s).</p>
+      </div>
+      <div class="form-box">
+        <form class="form-grid" id="customer-form">
+          <div class="field"><label for="cu-name">Nome *</label><input id="cu-name" name="name" type="text" required /></div>
+          <div class="field"><label for="cu-doc">CPF/CNPJ</label><input id="cu-doc" name="document_number" type="text" /></div>
+          <div class="field"><label for="cu-phone">Telefone</label><input id="cu-phone" name="phone" type="text" /></div>
+          <div class="field"><label for="cu-email">E-mail</label><input id="cu-email" name="email" type="email" /></div>
+          <div class="field" style="flex-basis:220px;"><label for="cu-address">Endereço</label><input id="cu-address" name="address" type="text" /></div>
+          <button class="btn" type="submit">Cadastrar cliente</button>
+        </form>
+        <div id="customer-form-error"></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Documento</th><th>Telefone</th><th>E-mail</th><th>Endereço</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="color:var(--text-muted)">Nenhum cliente cadastrado ainda.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('customer-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const errBox = document.getElementById('customer-form-error');
+      errBox.innerHTML = '';
+      try {
+        await apiPost('/clientes', {
+          name: data.get('name'),
+          document_number: data.get('document_number') || null,
+          phone: data.get('phone') || null,
+          email: data.get('email') || null,
+          address: data.get('address') || null,
+        });
+        viewClientes();
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
+  // --- Obras (projetos) -----------------------------------------------------
+
+  const PROJECT_STATUS = ['LEVANTAMENTO', 'ORCAMENTO', 'APROVADO', 'EM_PRODUCAO', 'ENTREGUE', 'CANCELADO'];
+
+  async function viewObras() {
+    setLoading('obras');
+    try {
+      const [projects, customers] = await Promise.all([api('/projetos'), api('/clientes')]);
+      renderObras(projects, customers);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderObras(projects, customers) {
+    const customerById = Object.fromEntries(customers.map((c) => [String(c.id), c.name]));
+    const rows = projects.map((p) => `
+      <tr>
+        <td class="wrap"><a href="#/orcamentos?project_id=${p.id}">${esc(p.name)}</a></td>
+        <td>${esc(customerById[String(p.customer_id)] || '—')}</td>
+        <td>${esc(p.address || '—')}</td>
+        <td>${statusPillForData(p.status)}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Obras</h1>
+        <p>${projects.length} obra(s) cadastrada(s). Clique numa obra para ver os orçamentos ligados a ela.</p>
+      </div>
+      <div class="form-box">
+        <form class="form-grid" id="project-form">
+          <div class="field"><label for="pr-customer">Cliente *</label>
+            <select id="pr-customer" name="customer_id" required>
+              <option value="">Selecione…</option>
+              ${optionsFrom(customers, 'id', 'name')}
+            </select>
+          </div>
+          <div class="field"><label for="pr-name">Nome da obra *</label><input id="pr-name" name="name" type="text" required /></div>
+          <div class="field" style="flex-basis:220px;"><label for="pr-address">Endereço</label><input id="pr-address" name="address" type="text" /></div>
+          <div class="field"><label for="pr-status">Status</label>
+            <select id="pr-status" name="status">${enumOptions(PROJECT_STATUS, 'LEVANTAMENTO')}</select>
+          </div>
+          <button class="btn" type="submit">Cadastrar obra</button>
+        </form>
+        <div id="project-form-error"></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Obra</th><th>Cliente</th><th>Endereço</th><th>Status</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted)">Nenhuma obra cadastrada ainda.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('project-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const errBox = document.getElementById('project-form-error');
+      errBox.innerHTML = '';
+      try {
+        await apiPost('/projetos', {
+          customer_id: Number(data.get('customer_id')),
+          name: data.get('name'),
+          address: data.get('address') || null,
+          status: data.get('status'),
+        });
+        viewObras();
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
+  // --- Orçamentos ------------------------------------------------------------
+
+  const QUOTE_STATUS = ['RASCUNHO', 'ENVIADO', 'APROVADO', 'REJEITADO', 'EXPIRADO'];
+
+  async function viewOrcamentos(params) {
+    setLoading('orçamentos');
+    try {
+      const projectFilter = params ? params.get('project_id') : null;
+      const query = projectFilter ? `?project_id=${projectFilter}` : '';
+      const [quotes, projects] = await Promise.all([api(`/orcamentos${query}`), api('/projetos')]);
+      renderOrcamentos(quotes, projects, projectFilter);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentos(quotes, projects, projectFilter) {
+    const projectById = Object.fromEntries(projects.map((p) => [String(p.id), p.name]));
+    const rows = quotes.map((q) => `
+      <tr>
+        <td><a href="#/orcamentos/${q.id}">#${q.id}</a></td>
+        <td class="wrap">${esc(projectById[String(q.project_id)] || '—')}</td>
+        <td>${statusPillForData(q.status)}</td>
+        <td class="num">${fmtMoney(q.total_value)}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Orçamentos</h1>
+        <p>${quotes.length} orçamento(s)${projectFilter ? ' para esta obra' : ''}.</p>
+      </div>
+      <div class="form-box">
+        <form class="form-grid" id="quote-form">
+          <div class="field" style="flex-basis:240px;"><label for="qt-project">Obra *</label>
+            <select id="qt-project" name="project_id" required>
+              <option value="">Selecione…</option>
+              ${optionsFrom(projects, 'id', 'name', projectFilter)}
+            </select>
+          </div>
+          <div class="field"><label for="qt-status">Status</label>
+            <select id="qt-status" name="status">${enumOptions(QUOTE_STATUS, 'RASCUNHO')}</select>
+          </div>
+          <button class="btn" type="submit">Criar orçamento</button>
+        </form>
+        <div id="quote-form-error"></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>#</th><th>Obra</th><th>Status</th><th>Valor total</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted)">Nenhum orçamento ainda.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('quote-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const errBox = document.getElementById('quote-form-error');
+      errBox.innerHTML = '';
+      try {
+        const quote = await apiPost('/orcamentos', {
+          project_id: Number(data.get('project_id')),
+          status: data.get('status'),
+          total_value: 0,
+        });
+        window.location.hash = `#/orcamentos/${quote.id}`;
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
+  async function viewOrcamentoDetail(id) {
+    setLoading('orçamento');
+    try {
+      const [quote, items] = await Promise.all([
+        api(`/orcamentos/${id}`),
+        api(`/orcamentos-itens?quote_id=${id}`),
+      ]);
+      const project = await api(`/projetos/${quote.project_id}`).catch(() => null);
+      renderOrcamentoDetail(quote, items, project);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentoDetail(quote, items, project) {
+    const rows = items.map((it) => `
+      <tr>
+        <td class="wrap">${esc(it.description)}</td>
+        <td class="num">${esc(it.quantity)}</td>
+        <td class="num">${fmtMoney(it.unit_price)}</td>
+        <td class="num">${fmtMoney(it.total_price)}</td>
+      </tr>
+    `).join('');
+    const total = items.reduce((sum, it) => sum + Number(it.total_price || 0), 0);
+
+    app.innerHTML = `
+      <p><a href="#/orcamentos" class="btn-ghost">&larr; Voltar para orçamentos</a></p>
+      <div class="detail-head">
+        <div>
+          <h1>Orçamento #${quote.id}</h1>
+          <div class="sub">${esc(project ? project.name : 'obra #' + quote.project_id)}</div>
+        </div>
+        ${statusPillForData(quote.status)}
+      </div>
+
+      <div class="section-title">Itens do orçamento (${items.length})</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted)">Sem itens ainda.</td></tr>'}</tbody>
+          <tfoot><tr><td colspan="3" style="text-align:right;font-weight:600;">Total</td><td class="num" style="font-weight:600;">${fmtMoney(total)}</td></tr></tfoot>
+        </table>
+      </div>
+
+      <div class="form-box" style="margin-top:1.2rem;">
+        <form class="form-grid" id="quote-item-form">
+          <div class="field" style="flex-basis:220px;"><label for="qi-desc">Descrição *</label><input id="qi-desc" name="description" type="text" required /></div>
+          <div class="field"><label for="qi-qty">Quantidade</label><input id="qi-qty" name="quantity" type="number" min="1" value="1" /></div>
+          <div class="field"><label for="qi-price">Valor unitário (R$)</label><input id="qi-price" name="unit_price" type="number" step="0.01" min="0" value="0" /></div>
+          <button class="btn" type="submit">Adicionar item</button>
+        </form>
+        <div id="quote-item-form-error"></div>
+      </div>
+    `;
+
+    document.getElementById('quote-item-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const errBox = document.getElementById('quote-item-form-error');
+      errBox.innerHTML = '';
+      const quantity = Number(data.get('quantity') || 1);
+      const unitPrice = Number(data.get('unit_price') || 0);
+      try {
+        await apiPost('/orcamentos-itens', {
+          quote_id: quote.id,
+          description: data.get('description'),
+          quantity,
+          unit_price: unitPrice,
+          total_price: quantity * unitPrice,
+        });
+        const freshItems = await api(`/orcamentos-itens?quote_id=${quote.id}`);
+        const newTotal = freshItems.reduce((sum, it) => sum + Number(it.total_price || 0), 0);
+        await apiSend('PUT', `/orcamentos/${quote.id}`, { total_value: newTotal });
+        viewOrcamentoDetail(quote.id);
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
+  // --- Financeiro --------------------------------------------------------
+
+  const FINANCIAL_STATUS = ['PENDENTE', 'PAGO', 'CANCELADO'];
+  const FINANCIAL_CATEGORIES = ['MATERIAL', 'MAO_DE_OBRA', 'FRETE', 'VENDA', 'OUTRO'];
+
+  async function viewFinanceiro(params) {
+    setLoading('financeiro');
+    try {
+      const statusFilter = params ? params.get('status') : null;
+      const query = statusFilter ? `?status=${statusFilter}` : '';
+      const entries = await api(`/lancamentos-financeiros${query}`);
+      renderFinanceiro(entries, statusFilter);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderFinanceiro(entries, statusFilter) {
+    const totalReceita = entries.filter((e) => e.entry_type === 'RECEITA' && e.status !== 'CANCELADO')
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+    const totalDespesa = entries.filter((e) => e.entry_type === 'DESPESA' && e.status !== 'CANCELADO')
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+    const saldo = totalReceita - totalDespesa;
+
+    const rows = entries.map((e) => `
+      <tr>
+        <td>${e.entry_type === 'RECEITA' ? '<span class="chip ok">Receita</span>' : '<span class="chip danger">Despesa</span>'}</td>
+        <td>${esc(e.category)}</td>
+        <td class="wrap">${esc(e.description)}</td>
+        <td class="num">${fmtMoney(e.amount)}</td>
+        <td>${esc(e.due_date || '—')}</td>
+        <td>${statusPillForData(e.status)}</td>
+        <td>${e.status === 'PENDENTE' ? `<button class="btn btn-small mark-paid" data-id="${e.id}">Marcar pago</button>` : ''}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Financeiro</h1>
+        <p>Lançamentos de receita e despesa, filtráveis por status.</p>
+      </div>
+      <div class="stat-row">
+        <div class="stat-tile ok"><div class="label">Receitas</div><div class="value">${fmtMoney(totalReceita)}</div></div>
+        <div class="stat-tile danger"><div class="label">Despesas</div><div class="value">${fmtMoney(totalDespesa)}</div></div>
+        <div class="stat-tile"><div class="label">Saldo</div><div class="value">${fmtMoney(saldo)}</div></div>
+      </div>
+      <div class="form-box">
+        <form class="form-grid" id="financial-form">
+          <div class="field"><label for="fi-type">Tipo</label>
+            <select id="fi-type" name="entry_type"><option value="DESPESA">Despesa</option><option value="RECEITA">Receita</option></select>
+          </div>
+          <div class="field"><label for="fi-category">Categoria</label>
+            <select id="fi-category" name="category">${enumOptions(FINANCIAL_CATEGORIES, 'MATERIAL')}</select>
+          </div>
+          <div class="field" style="flex-basis:220px;"><label for="fi-desc">Descrição *</label><input id="fi-desc" name="description" type="text" required /></div>
+          <div class="field"><label for="fi-amount">Valor (R$) *</label><input id="fi-amount" name="amount" type="number" step="0.01" min="0" required /></div>
+          <div class="field"><label for="fi-due">Vencimento</label><input id="fi-due" name="due_date" type="date" /></div>
+          <button class="btn" type="submit">Lançar</button>
+        </form>
+        <div id="financial-form-error"></div>
+      </div>
+      <div class="filters">
+        <div class="field">
+          <label for="fi-filter-status">Filtrar por status</label>
+          <select id="fi-filter-status">
+            <option value="">Todos</option>
+            ${enumOptions(FINANCIAL_STATUS, statusFilter || '')}
+          </select>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" style="color:var(--text-muted)">Nenhum lançamento ainda.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('financial-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const errBox = document.getElementById('financial-form-error');
+      errBox.innerHTML = '';
+      try {
+        await apiPost('/lancamentos-financeiros', {
+          entry_type: data.get('entry_type'),
+          category: data.get('category'),
+          description: data.get('description'),
+          amount: Number(data.get('amount')),
+          due_date: data.get('due_date') || null,
+          status: 'PENDENTE',
+        });
+        viewFinanceiro();
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+
+    document.getElementById('fi-filter-status').addEventListener('change', (ev) => {
+      window.location.hash = ev.target.value ? `#/financeiro?status=${ev.target.value}` : '#/financeiro';
+    });
+
+    document.querySelectorAll('.mark-paid').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await apiSend('PUT', `/lancamentos-financeiros/${btn.dataset.id}`, {
+            status: 'PAGO',
+            paid_date: todayIso(),
+          });
+          viewFinanceiro(new URLSearchParams(window.location.hash.split('?')[1] || ''));
+        } catch (err) {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  // --- Materiais a comprar -------------------------------------------------
+
+  async function viewCompras() {
+    setLoading('materiais a comprar');
+    try {
+      const [materials, balances] = await Promise.all([api('/materiais'), api('/saldos-estoque')]);
+      renderCompras(materials, balances);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderCompras(materials, balances) {
+    const stockByMaterial = {};
+    balances.forEach((b) => {
+      const key = String(b.material_id);
+      stockByMaterial[key] = (stockByMaterial[key] || 0) + Number(b.quantity || 0);
+    });
+
+    const short = materials
+      .map((m) => ({ ...m, currentStock: stockByMaterial[String(m.id)] || 0 }))
+      .filter((m) => m.currentStock < Number(m.min_stock || 0));
+
+    const rows = short.map((m) => `
+      <tr>
+        <td class="wrap">${esc(m.name)}</td>
+        <td>${esc(m.category)}</td>
+        <td class="num">${fmtNum(m.currentStock, 2)} ${esc(m.unit)}</td>
+        <td class="num">${fmtNum(m.min_stock, 2)} ${esc(m.unit)}</td>
+        <td class="num">${fmtNum(Number(m.min_stock) - m.currentStock, 2)} ${esc(m.unit)}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Materiais a comprar</h1>
+        <p>${short.length} material(is) abaixo do estoque mínimo cadastrado (comparando \`/materiais\` × \`/saldos-estoque\`).</p>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Material</th><th>Categoria</th><th>Estoque atual</th><th>Estoque mínimo</th><th>Falta comprar</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="color:var(--text-muted)">Nada abaixo do mínimo no momento.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // --- Tipologias ----------------------------------------------------------
+
+  const TYPOLOGY_CATEGORIES = ['CORRER', 'GIRO', 'MAXIM_AR', 'OSCILOBATENTE', 'PIVOTANTE', 'RIBANTA', 'CAMARAO', 'GUILHOTINA', 'BASCULANTE'];
+
+  async function viewTipologias() {
+    setLoading('tipologias');
+    try {
+      const typologies = await api('/tipologias');
+      renderTipologias(typologies);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderTipologias(typologies) {
+    const rows = typologies.map((t) => `
+      <tr>
+        <td>${esc(t.name)}</td>
+        <td>${esc(t.category)}</td>
+        <td>${t.has_baguete ? 'Sim' : 'Não'}</td>
+        <td>${t.is_common_in_brazil ? 'Sim' : 'Não'}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Tipologias</h1>
+        <p>${typologies.length} tipologia(s) cadastrada(s). Usadas em vãos e fórmulas.</p>
+      </div>
+      <div class="form-box">
+        <form class="form-grid" id="typology-form">
+          <div class="field"><label for="ty-name">Nome *</label><input id="ty-name" name="name" type="text" required /></div>
+          <div class="field"><label for="ty-category">Categoria *</label>
+            <select id="ty-category" name="category" required>${enumOptions(TYPOLOGY_CATEGORIES)}</select>
+          </div>
+          <div class="field"><label for="ty-baguete">Tem baguete?</label>
+            <select id="ty-baguete" name="has_baguete"><option value="0">Não</option><option value="1">Sim</option></select>
+          </div>
+          <button class="btn" type="submit">Cadastrar tipologia</button>
+        </form>
+        <div id="typology-form-error"></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Categoria</th><th>Baguete</th><th>Comum no Brasil</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted)">Nenhuma tipologia cadastrada.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('typology-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = new FormData(ev.target);
+      const errBox = document.getElementById('typology-form-error');
+      errBox.innerHTML = '';
+      try {
+        await apiPost('/tipologias', {
+          name: data.get('name'),
+          category: data.get('category'),
+          has_baguete: Number(data.get('has_baguete')),
+          is_common_in_brazil: 1,
+        });
+        viewTipologias();
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
+  // --- Nova fórmula ----------------------------------------------------------
+
+  let formulaComponentCount = 0;
+
+  function componentRowHtml(index) {
+    return `
+      <div class="component-row" data-row="${index}">
+        <div class="field"><label>Peça</label><input name="c${index}_role" type="text" placeholder="ex: MARCO, FOLHA_LARGURA" required /></div>
+        <div class="field"><label>Qtd.</label><input name="c${index}_qty" type="number" min="1" value="1" /></div>
+        <div class="field" style="flex-basis:200px;"><label>Expressão (opcional)</label><input name="c${index}_expr" type="text" placeholder="ex: (L - 10) / 2" /></div>
+        <div class="field"><label>ID do perfil (opcional)</label><input name="c${index}_profile" type="number" /></div>
+        <button type="button" class="btn btn-small btn-danger remove-component" data-row="${index}">Remover</button>
+      </div>
+    `;
+  }
+
+  async function viewFormulaNova() {
+    setLoading('formulário de nova fórmula');
+    try {
+      const [typologies, manufacturers] = await Promise.all([api('/tipologias'), api('/fabricantes')]);
+      renderFormulaNova(typologies, manufacturers);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderFormulaNova(typologies, manufacturers) {
+    const productLines = manufacturers.flatMap((m) =>
+      (m.product_lines || []).map((pl) => ({ id: pl.id, label: `${m.name} — ${pl.name}` }))
+    );
+
+    formulaComponentCount = 0;
+    const firstRow = componentRowHtml(formulaComponentCount++);
+
+    app.innerHTML = `
+      <p><a href="#/formulas" class="btn-ghost">&larr; Voltar para fórmulas</a></p>
+      <div class="page-head">
+        <h1>Nova fórmula</h1>
+        <p>A fórmula nasce <strong>PENDENTE e bloqueada para produção</strong> — o cálculo de corte só é liberado depois
+        que o checklist da página de detalhe estiver 100% completo (protótipo aprovado, validações, aprovação técnica).
+        Isso é a mesma regra usada em todas as fórmulas do sistema, não uma limitação deste formulário.</p>
+      </div>
+      <div class="form-box">
+        <form id="formula-form">
+          <div class="form-grid" style="margin-bottom:1rem;">
+            <div class="field" style="flex-basis:260px;"><label for="fo-name">Nome *</label><input id="fo-name" name="name" type="text" required /></div>
+            <div class="field"><label for="fo-typology">Tipologia</label>
+              <select id="fo-typology" name="typology_id"><option value="">—</option>${optionsFrom(typologies, 'id', 'name')}</select>
+            </div>
+            <div class="field" style="flex-basis:220px;"><label for="fo-line">Linha de produto</label>
+              <select id="fo-line" name="product_line_id"><option value="">—</option>${optionsFrom(productLines, 'id', 'label')}</select>
+            </div>
+            <div class="field"><label for="fo-rounding">Arredondamento</label>
+              <select id="fo-rounding" name="rounding_mode">${enumOptions(['ROUND', 'FLOOR', 'CEIL', 'NONE'], 'ROUND')}</select>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:1rem;"><label for="fo-desc">Descrição / observações</label><textarea id="fo-desc" name="description"></textarea></div>
+
+          <div class="section-title">Componentes de corte</div>
+          <div id="formula-components">${firstRow}</div>
+          <button type="button" class="btn btn-ghost btn-small" id="add-component" style="margin:0.6rem 0 1.2rem;">+ Adicionar componente</button>
+
+          <button class="btn" type="submit">Criar fórmula</button>
+        </form>
+        <div id="formula-form-error"></div>
+      </div>
+    `;
+
+    document.getElementById('add-component').addEventListener('click', () => {
+      document.getElementById('formula-components').insertAdjacentHTML('beforeend', componentRowHtml(formulaComponentCount++));
+      bindRemoveButtons();
+    });
+    bindRemoveButtons();
+
+    function bindRemoveButtons() {
+      document.querySelectorAll('.remove-component').forEach((btn) => {
+        btn.onclick = () => {
+          const rows = document.querySelectorAll('.component-row');
+          if (rows.length <= 1) return;
+          btn.closest('.component-row').remove();
+        };
+      });
+    }
+
+    document.getElementById('formula-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const form = ev.target;
+      const data = new FormData(form);
+      const errBox = document.getElementById('formula-form-error');
+      errBox.innerHTML = '';
+
+      const components = [];
+      document.querySelectorAll('.component-row').forEach((row) => {
+        const idx = row.dataset.row;
+        const role = data.get(`c${idx}_role`);
+        if (!role) return;
+        components.push({
+          component_role: role,
+          quantity: Number(data.get(`c${idx}_qty`) || 1),
+          expression: data.get(`c${idx}_expr`) || null,
+          profile_id: data.get(`c${idx}_profile`) ? Number(data.get(`c${idx}_profile`)) : null,
+        });
+      });
+
+      const submitBtn = form.querySelector('button[type=submit]');
+      submitBtn.disabled = true;
+      try {
+        const formula = await apiPost('/formulas', {
+          name: data.get('name'),
+          typology_id: data.get('typology_id') ? Number(data.get('typology_id')) : null,
+          product_line_id: data.get('product_line_id') ? Number(data.get('product_line_id')) : null,
+          description: data.get('description') || null,
+          rounding_mode: data.get('rounding_mode'),
+          components,
+        });
+        window.location.hash = `#/formulas/${formula.id}`;
+      } catch (err) {
+        submitBtn.disabled = false;
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
   // --- Autenticação ------------------------------------------------------
 
   function showTopnav(user) {
@@ -501,6 +1178,10 @@
       setActiveNav('perfis');
       return viewPerfis(params);
     }
+    if (segments[0] === 'formulas' && segments[1] === 'nova') {
+      setActiveNav('formulas');
+      return viewFormulaNova();
+    }
     if (segments[0] === 'formulas' && segments[1]) {
       setActiveNav('formulas');
       return viewFormulaDetail(segments[1]);
@@ -508,6 +1189,34 @@
     if (segments[0] === 'formulas') {
       setActiveNav('formulas');
       return viewFormulas();
+    }
+    if (segments[0] === 'tipologias') {
+      setActiveNav('tipologias');
+      return viewTipologias();
+    }
+    if (segments[0] === 'clientes') {
+      setActiveNav('clientes');
+      return viewClientes();
+    }
+    if (segments[0] === 'obras') {
+      setActiveNav('obras');
+      return viewObras();
+    }
+    if (segments[0] === 'orcamentos' && segments[1]) {
+      setActiveNav('orcamentos');
+      return viewOrcamentoDetail(segments[1]);
+    }
+    if (segments[0] === 'orcamentos') {
+      setActiveNav('orcamentos');
+      return viewOrcamentos(params);
+    }
+    if (segments[0] === 'financeiro') {
+      setActiveNav('financeiro');
+      return viewFinanceiro(params);
+    }
+    if (segments[0] === 'compras') {
+      setActiveNav('compras');
+      return viewCompras();
     }
     if (segments[0] === 'senha') {
       setActiveNav('');

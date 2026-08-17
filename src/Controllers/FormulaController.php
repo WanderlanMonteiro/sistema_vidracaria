@@ -7,8 +7,10 @@ namespace App\Controllers;
 use App\Formula\SafeFormulaException;
 use App\Http\Request;
 use App\Http\Response;
+use App\Services\FormulaBuilderService;
 use App\Services\FormulaCalculationService;
 use App\Services\ProductionReleaseValidator;
+use InvalidArgumentException;
 use PDO;
 
 final class FormulaController
@@ -62,6 +64,18 @@ final class FormulaController
         }
 
         Response::json($formula);
+    }
+
+    /** @param array<string, string> $params */
+    public function create(Request $request, array $params): void
+    {
+        try {
+            $service = new FormulaBuilderService($this->db);
+            $formula = $service->create($request->body());
+            Response::json($formula, 201);
+        } catch (InvalidArgumentException $e) {
+            Response::error($e->getMessage(), 422);
+        }
     }
 
     /** @param array<string, string> $params */
