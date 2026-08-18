@@ -1753,7 +1753,7 @@
     app.innerHTML = `
       <div class="login-wrap">
         <div class="login-box">
-          <div class="brand-mark" style="width:40px;height:40px;font-size:1.3rem;">V</div>
+          <img src="logo-full.png" alt="MD Vidros &amp; Esquadrias" class="login-logo" />
           <h1>Entrar no sistema</h1>
           ${message ? `<div class="login-error">${esc(message)}</div>` : ''}
           <form id="login-form">
