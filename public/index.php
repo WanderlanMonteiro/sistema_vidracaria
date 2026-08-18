@@ -6,6 +6,7 @@ require __DIR__ . '/../src/autoload.php';
 
 use App\Config\Database;
 use App\Controllers\AuthController;
+use App\Controllers\UserController;
 use App\Controllers\FormulaController;
 use App\Controllers\GoodsReceiptController;
 use App\Controllers\ManufacturerController;
@@ -13,6 +14,7 @@ use App\Controllers\ProductionOrderItemController;
 use App\Controllers\ProfileController;
 use App\Controllers\QuoteReportController;
 use App\Controllers\StockMovementController;
+use App\Controllers\TemperingOrderController;
 use App\Controllers\Support\CrudController;
 use App\Http\Request;
 use App\Http\Response;
@@ -64,6 +66,9 @@ $router->post('/auth/login', [new AuthController($db), 'login']);
 $router->post('/auth/logout', [new AuthController($db), 'logout']);
 $router->get('/auth/me', [new AuthController($db), 'me']);
 $router->put('/auth/senha', [new AuthController($db), 'changePassword']);
+$router->get('/usuarios', [new UserController($db), 'index']);
+$router->post('/usuarios', [new UserController($db), 'create']);
+$router->put('/usuarios/{id}', [new UserController($db), 'update']);
 
 // --- Núcleo técnico (Fase 1) ---
 $router->get('/fabricantes', [new ManufacturerController($db), 'index']);
@@ -97,6 +102,13 @@ $registerCrud($router, '/orcamentos-itens', new CrudController($db, 'quote_items
 $registerCrud($router, '/orcamentos-acessorios', new CrudController($db, 'quote_accessories', ['quote_id', 'accessory_id', 'description', 'quantity'], ['quote_id']));
 $router->get('/orcamentos/{id}/relatorio-compras', [new QuoteReportController($db), 'purchaseReport']);
 $router->get('/orcamentos/{id}/relatorio-tempera', [new QuoteReportController($db), 'temperingReport']);
+
+// --- Pedido de têmpera (rastreável: pendente/enviado/recebido) ---
+$router->get('/pedidos-tempera', [new CrudController($db, 'tempering_orders', [], ['status', 'quote_id', 'supplier_id']), 'index']);
+$router->get('/pedidos-tempera/{id}', [new TemperingOrderController($db), 'show']);
+$router->post('/pedidos-tempera', [new TemperingOrderController($db), 'createFromQuote']);
+$router->post('/pedidos-tempera/manual', [new TemperingOrderController($db), 'createManual']);
+$router->put('/pedidos-tempera/{id}', [new CrudController($db, 'tempering_orders', ['status', 'supplier_id', 'sent_at', 'received_at', 'notes']), 'update']);
 $registerCrud($router, '/pedidos-venda', new CrudController($db, 'sales_orders', ['quote_id', 'project_id', 'status', 'total_value'], ['project_id', 'status']));
 $registerCrud($router, '/pedidos-venda-itens', new CrudController($db, 'sales_order_items', ['sales_order_id', 'description', 'quantity', 'unit_price', 'total_price'], ['sales_order_id']));
 

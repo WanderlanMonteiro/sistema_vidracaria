@@ -910,6 +910,7 @@
         <a href="#/orcamentos/${quote.id}/imprimir" class="btn btn-ghost btn-small" style="text-decoration:none;">Imprimir</a>
         <a href="#/orcamentos/${quote.id}/compras" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de compras</a>
         <a href="#/orcamentos/${quote.id}/tempera" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de têmpera</a>
+        <button class="btn btn-small" id="btn-criar-pedido-tempera">Criar pedido de têmpera</button>
       </div>
 
       <div class="section-title">Itens do orçamento (${items.length})</div>
@@ -1052,6 +1053,18 @@
         viewOrcamentoDetail(quote.id);
       } catch (err) {
         errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+
+    document.getElementById('btn-criar-pedido-tempera').addEventListener('click', async (ev) => {
+      const btn = ev.target;
+      btn.disabled = true;
+      try {
+        const order = await apiPost('/pedidos-tempera', { quote_id: quote.id });
+        window.location.hash = `#/tempera/${order.id}`;
+      } catch (err) {
+        btn.disabled = false;
+        window.alert(err.message);
       }
     });
   }
@@ -1733,6 +1746,282 @@
     });
   }
 
+  // --- Usuários --------------------------------------------------------
+
+  const USER_ROLES = ['ADMIN', 'USER', 'TECNICO'];
+
+  async function viewUsuarios() {
+    setLoading('usuários');
+    try {
+      const users = await api('/usuarios');
+      renderUsuarios(users);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderUsuarios(users) {
+    const rows = users.map((u) => `
+      <tr>
+        <td>${esc(u.name)}</td>
+        <td>${esc(u.email)}</td>
+        <td>
+          <select data-role-for="${u.id}">${enumOptions(USER_ROLES, u.role)}</select>
+        </td>
+        <td>${u.active ? '<span class="chip ok">Ativo</span>' : '<span class="chip danger">Inativo</span>'}</td>
+        <td>${esc((u.last_login_at || '—').toString().slice(0, 16).replace('T', ' '))}</td>
+        <td><button class="btn btn-small toggle-active" data-id="${u.id}" data-active="${u.active}">${u.active ? 'Desativar' : 'Ativar'}</button></td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Usuários</h1>
+        <p>${users.length} usuário(s). O papel (role) ainda não restringe acesso — todo usuário ativo vê o sistema inteiro.</p>
+      </div>
+      <div class="form-box">
+        <form class="form-grid" id="user-form">
+          <div class="field"><label for="us-name">Nome *</label><input id="us-name" type="text" required /></div>
+          <div class="field"><label for="us-email">E-mail *</label><input id="us-email" type="email" required /></div>
+          <div class="field"><label for="us-password">Senha inicial *</label><input id="us-password" type="password" minlength="8" required /></div>
+          <div class="field"><label for="us-role">Papel</label><select id="us-role">${enumOptions(USER_ROLES, 'USER')}</select></div>
+          <button class="btn" type="submit">Cadastrar usuário</button>
+        </form>
+        <div id="user-form-error"></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th>Último login</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="color:var(--text-muted)">Nenhum usuário cadastrado.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('user-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const errBox = document.getElementById('user-form-error');
+      errBox.innerHTML = '';
+      try {
+        await apiPost('/usuarios', {
+          name: document.getElementById('us-name').value,
+          email: document.getElementById('us-email').value,
+          password: document.getElementById('us-password').value,
+          role: document.getElementById('us-role').value,
+        });
+        viewUsuarios();
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+
+    document.querySelectorAll('.toggle-active').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await apiSend('PUT', `/usuarios/${btn.dataset.id}`, { active: btn.dataset.active !== '1' });
+          viewUsuarios();
+        } catch (err) {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-role-for]').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        try {
+          await apiSend('PUT', `/usuarios/${sel.dataset.roleFor}`, { role: sel.value });
+        } catch (err) { /* ignora -- select volta a ficar visualmente errado até recarregar */ }
+      });
+    });
+  }
+
+  // --- Materiais ---------------------------------------------------------
+
+  const MATERIAL_CATEGORIES = ['PERFIL', 'VIDRO', 'ACESSORIO', 'GUARNICAO', 'OUTRO'];
+
+  async function viewMateriais() {
+    setLoading('materiais');
+    try {
+      const materials = await api('/materiais');
+      renderMateriais(materials);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderMateriais(materials) {
+    const rows = materials.map((m) => `
+      <tr>
+        <td class="wrap">${esc(m.name)}</td>
+        <td>${esc(m.category)}</td>
+        <td>${esc(m.unit)}</td>
+        <td class="num">${fmtNum(m.min_stock, 2)}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Materiais</h1>
+        <p>${materials.length} material(is) cadastrado(s). Usado no controle de estoque e no relatório de compras.</p>
+      </div>
+      <div class="form-box">
+        <form class="form-grid" id="material-form">
+          <div class="field" style="flex-basis:220px;"><label for="ma-name">Nome *</label><input id="ma-name" type="text" required /></div>
+          <div class="field"><label for="ma-category">Categoria</label><select id="ma-category">${enumOptions(MATERIAL_CATEGORIES, 'OUTRO')}</select></div>
+          <div class="field"><label for="ma-unit">Unidade</label><input id="ma-unit" type="text" value="un" style="width:70px;" /></div>
+          <div class="field"><label for="ma-min">Estoque mínimo</label><input id="ma-min" type="number" step="0.01" min="0" value="0" /></div>
+          <button class="btn" type="submit">Cadastrar material</button>
+        </form>
+        <div id="material-form-error"></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Categoria</th><th>Unidade</th><th>Estoque mínimo</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted)">Nenhum material cadastrado.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('material-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const errBox = document.getElementById('material-form-error');
+      errBox.innerHTML = '';
+      try {
+        await apiPost('/materiais', {
+          name: document.getElementById('ma-name').value,
+          category: document.getElementById('ma-category').value,
+          unit: document.getElementById('ma-unit').value || 'un',
+          min_stock: Number(document.getElementById('ma-min').value || 0),
+        });
+        viewMateriais();
+      } catch (err) {
+        errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
+      }
+    });
+  }
+
+  // --- Pedido de têmpera ---------------------------------------------------
+
+  const TEMPERING_STATUS = ['PENDENTE', 'ENVIADO', 'RECEBIDO', 'CANCELADO'];
+
+  async function viewPedidosTempera(params) {
+    setLoading('pedidos de têmpera');
+    try {
+      const statusFilter = params.get('status') || '';
+      const query = statusFilter ? `?status=${statusFilter}` : '';
+      const [orders, suppliers] = await Promise.all([
+        api(`/pedidos-tempera${query}`),
+        api('/fornecedores'),
+      ]);
+      renderPedidosTempera(orders, suppliers, statusFilter);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderPedidosTempera(orders, suppliers, statusFilter) {
+    const supplierById = Object.fromEntries(suppliers.map((s) => [String(s.id), s.name]));
+    const rows = orders.map((o) => `
+      <tr>
+        <td><a href="#/tempera/${o.id}">#${o.id}</a></td>
+        <td>${o.quote_id ? `<a href="#/orcamentos/${o.quote_id}">#${o.quote_id}</a>` : '—'}</td>
+        <td>${esc(supplierById[String(o.supplier_id)] || '—')}</td>
+        <td>${statusPillForData(o.status)}</td>
+        <td>${esc((o.created_at || '').slice(0, 10))}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Pedidos de têmpera</h1>
+        <p>${orders.length} pedido(s). Criados a partir do relatório de têmpera de um orçamento (veja o botão na tela do orçamento).</p>
+      </div>
+      <div class="filters">
+        <div class="field">
+          <label for="tp-filter-status">Status</label>
+          <select id="tp-filter-status">
+            <option value="">Todos</option>
+            ${enumOptions(TEMPERING_STATUS, statusFilter)}
+          </select>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>#</th><th>Orçamento</th><th>Fornecedor</th><th>Status</th><th>Criado em</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="color:var(--text-muted)">Nenhum pedido de têmpera ainda.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('tp-filter-status').addEventListener('change', (ev) => {
+      window.location.hash = ev.target.value ? `#/tempera?status=${ev.target.value}` : '#/tempera';
+    });
+  }
+
+  async function viewPedidoTemperaDetail(id) {
+    setLoading('pedido de têmpera');
+    try {
+      const [order, suppliers] = await Promise.all([api(`/pedidos-tempera/${id}`), api('/fornecedores')]);
+      renderPedidoTemperaDetail(order, suppliers);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderPedidoTemperaDetail(order, suppliers) {
+    const rows = order.items.map((it) => `
+      <tr>
+        <td class="wrap">${esc(it.description)}</td>
+        <td class="num">${fmtNum(it.width_mm, 0)} x ${fmtNum(it.height_mm, 0)} mm</td>
+        <td class="num">${esc(it.quantity)}</td>
+      </tr>
+    `).join('');
+
+    const nextActions = {
+      PENDENTE: [['ENVIADO', 'Marcar como enviado']],
+      ENVIADO: [['RECEBIDO', 'Marcar como recebido'], ['CANCELADO', 'Cancelar']],
+      RECEBIDO: [],
+      CANCELADO: [],
+    };
+    const actions = (nextActions[order.status] || []).map(([status, label]) => `
+      <button class="btn btn-small" data-next-status="${status}">${label}</button>
+    `).join(' ');
+
+    app.innerHTML = `
+      <p><a href="#/tempera" class="btn-ghost">&larr; Voltar para pedidos de têmpera</a></p>
+      <div class="detail-head">
+        <div>
+          <h1>Pedido de têmpera #${order.id}</h1>
+          <div class="sub">${order.quote_id ? `Orçamento #${order.quote_id}` : 'Lançado manualmente'} · Fornecedor: ${esc((suppliers.find((s) => s.id === order.supplier_id) || {}).name || '—')}</div>
+        </div>
+        ${statusPillForData(order.status)}
+      </div>
+      <div style="display:flex;gap:0.6rem;margin:0.8rem 0 1.2rem;">${actions}</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Peça</th><th>Medida</th><th>Qtd.</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="3" style="color:var(--text-muted)">Sem peças.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.querySelectorAll('[data-next-status]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const newStatus = btn.dataset.nextStatus;
+        const payload = { status: newStatus };
+        if (newStatus === 'ENVIADO') payload.sent_at = todayIso();
+        if (newStatus === 'RECEBIDO') payload.received_at = todayIso();
+        try {
+          await apiSend('PUT', `/pedidos-tempera/${order.id}`, payload);
+          viewPedidoTemperaDetail(order.id);
+        } catch (err) {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
   // --- Autenticação ------------------------------------------------------
 
   function showTopnav(user) {
@@ -1885,6 +2174,22 @@
     if (segments[0] === 'compras') {
       setActiveNav('compras');
       return viewCompras();
+    }
+    if (segments[0] === 'usuarios') {
+      setActiveNav('usuarios');
+      return viewUsuarios();
+    }
+    if (segments[0] === 'materiais') {
+      setActiveNav('materiais');
+      return viewMateriais();
+    }
+    if (segments[0] === 'tempera' && segments[1]) {
+      setActiveNav('tempera');
+      return viewPedidoTemperaDetail(segments[1]);
+    }
+    if (segments[0] === 'tempera') {
+      setActiveNav('tempera');
+      return viewPedidosTempera(params);
     }
     if (segments[0] === 'senha') {
       setActiveNav('');

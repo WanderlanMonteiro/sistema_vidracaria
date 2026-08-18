@@ -135,6 +135,31 @@ variáveis cadastradas, operadores matemáticos e funções autorizadas). **Recu
 calcular** (HTTP 422) se a versão da fórmula estiver com `production_locked = 1` e
 `status_code` diferente de `LIBERADO_PRODUCAO` — ver `docs/GOVERNANCA_DE_DADOS.md`.
 
+## Usuários
+
+Não é mais só direto no banco: `GET /usuarios` (lista, sem `password_hash`),
+`POST /usuarios` (`name`, `email`, `password` 8+ caracteres, `role` livre —
+ADMIN/USER/TECNICO por convenção do frontend, mas o campo aceita qualquer texto),
+`PUT /usuarios/{id}` (`active`, `role`, `name` — nunca troca e-mail/senha por aqui;
+senha é sempre `PUT /auth/senha` pelo próprio usuário). Continua **sem** permissão
+por papel — todo usuário ativo vê o sistema inteiro.
+
+## Pedido de têmpera
+
+Registro rastreável (`PENDENTE`→`ENVIADO`→`RECEBIDO`/`CANCELADO`), diferente do
+`GET /orcamentos/{id}/relatorio-tempera` (que é só uma consulta instantânea, sem
+status próprio).
+
+- `POST /pedidos-tempera` `{ quote_id, supplier_id?, notes? }` — cria o pedido com
+  os itens vindos direto do relatório de têmpera daquele orçamento (só vidro
+  `TEMPERADO`, medida final já resolvida pela regra de maior largura × maior
+  altura). Erro 422 se o orçamento não tiver nenhuma peça temperada com medida.
+- `POST /pedidos-tempera/manual` `{ supplier_id?, notes?, items: [...] }` — pedido
+  avulso, sem orçamento, com itens informados na mão.
+- `GET /pedidos-tempera` (filtros `?status=&quote_id=&supplier_id=`), `GET /pedidos-tempera/{id}`
+  (com itens), `PUT /pedidos-tempera/{id}` (`status`, `supplier_id`, `sent_at`,
+  `received_at`, `notes`).
+
 ## Fase 2 — comercial, estoque, produção e qualidade
 
 Cobre as tabelas das migrations `0004_commercial.sql`–`0007_quality.sql`. A maioria é

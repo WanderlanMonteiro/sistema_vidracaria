@@ -88,6 +88,7 @@ final class QuoteReportService
             $pieces[] = [
                 'quote_item_id' => $item['id'],
                 'description' => $item['description'],
+                'glass_type_id' => (int) $item['glass_type_id'],
                 'glass_type' => $glass['name'],
                 'thickness_mm' => $glass['thickness_mm'],
                 'width_mm' => $width,
