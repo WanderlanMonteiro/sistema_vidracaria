@@ -319,6 +319,11 @@ td.wrap { white-space: normal; min-width: 220px; }
 .stat-tile.ok .value { color: var(--ok); }
 .stat-tile.danger .value { color: var(--danger); }
 
+/* --- Editor de desenho de tipologia --- */
+.drawing-toolbar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.tool-btn { background: transparent; color: var(--text); border-color: var(--border); }
+.tool-btn.active { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+
 /* --- Folha de impressão do orçamento --- */
 .print-sheet {
   background: var(--surface);

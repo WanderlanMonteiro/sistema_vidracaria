@@ -1304,64 +1304,234 @@
 
   const TYPOLOGY_CATEGORIES = ['CORRER', 'GIRO', 'MAXIM_AR', 'OSCILOBATENTE', 'PIVOTANTE', 'RIBANTA', 'CAMARAO', 'GUILHOTINA', 'BASCULANTE'];
 
+  // --- Editor de desenho (retângulo/linha/seta/texto sobre SVG) ------------
+  // Formas guardadas como dado estruturado (não imagem), pra poder reabrir e
+  // editar depois. Funciona com mouse e touch via Pointer Events.
+
+  let svgMarkerSeq = 0;
+
+  function shapesToSvgInner(shapes) {
+    return shapes.map((s) => {
+      if (s.type === 'rect') {
+        const x = Math.min(s.x1, s.x2);
+        const y = Math.min(s.y1, s.y2);
+        const w = Math.abs(s.x2 - s.x1);
+        const h = Math.abs(s.y2 - s.y1);
+        return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="currentColor" stroke-width="2" />`;
+      }
+      if (s.type === 'line') {
+        return `<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="currentColor" stroke-width="2" />`;
+      }
+      if (s.type === 'arrow') {
+        return `<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="currentColor" stroke-width="2" marker-end="url(#${s._markerId})" />`;
+      }
+      if (s.type === 'text') {
+        return `<text x="${s.x1}" y="${s.y1}" font-size="14" fill="currentColor">${esc(s.text)}</text>`;
+      }
+      return '';
+    }).join('');
+  }
+
+  /** Monta o quadro de desenho dentro de containerEl (editável) ou só exibe (readOnly). */
+  function mountDrawingEditor(containerEl, initialShapes, readOnly) {
+    const markerId = `arrowhead-${svgMarkerSeq++}`;
+    const width = 420;
+    const height = 300;
+    const shapes = (initialShapes || []).map((s) => ({ ...s, _markerId: markerId }));
+
+    containerEl.innerHTML = `
+      ${readOnly ? '' : `
+        <div class="drawing-toolbar">
+          <button type="button" class="btn btn-small tool-btn active" data-tool="rect">▭ Retângulo</button>
+          <button type="button" class="btn btn-small tool-btn" data-tool="line">╱ Linha</button>
+          <button type="button" class="btn btn-small tool-btn" data-tool="arrow">→ Seta</button>
+          <button type="button" class="btn btn-small tool-btn" data-tool="text">T Texto</button>
+          <button type="button" class="btn btn-ghost btn-small" id="dw-undo">Desfazer</button>
+          <button type="button" class="btn btn-ghost btn-small" id="dw-clear">Limpar</button>
+        </div>
+      `}
+      <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;height:auto;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);touch-action:none;display:block;">
+        <defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor" /></marker></defs>
+        <g id="dw-shapes-${markerId}"></g>
+      </svg>
+    `;
+
+    const svgEl = containerEl.querySelector('svg');
+    const groupEl = containerEl.querySelector(`#dw-shapes-${markerId}`);
+
+    function redraw(tempShape) {
+      groupEl.innerHTML = shapesToSvgInner(tempShape ? [...shapes, tempShape] : shapes);
+    }
+    redraw();
+
+    if (readOnly) {
+      return { getShapes: () => shapes };
+    }
+
+    let currentTool = 'rect';
+    containerEl.querySelectorAll('.tool-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentTool = btn.dataset.tool;
+        containerEl.querySelectorAll('.tool-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    containerEl.querySelector('#dw-undo').addEventListener('click', () => {
+      shapes.pop();
+      redraw();
+    });
+    containerEl.querySelector('#dw-clear').addEventListener('click', () => {
+      if (shapes.length === 0 || window.confirm('Limpar todo o desenho?')) {
+        shapes.length = 0;
+        redraw();
+      }
+    });
+
+    function pointFromEvent(ev) {
+      const pt = svgEl.createSVGPoint();
+      pt.x = ev.clientX;
+      pt.y = ev.clientY;
+      const transformed = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+      return { x: Math.round(transformed.x), y: Math.round(transformed.y) };
+    }
+
+    let dragStart = null;
+    svgEl.addEventListener('pointerdown', (ev) => {
+      const p = pointFromEvent(ev);
+      if (currentTool === 'text') {
+        const text = window.prompt('Texto do rótulo:');
+        if (text) {
+          shapes.push({ type: 'text', x1: p.x, y1: p.y, text, _markerId: markerId });
+          redraw();
+        }
+        return;
+      }
+      dragStart = p;
+      svgEl.setPointerCapture(ev.pointerId);
+    });
+    svgEl.addEventListener('pointermove', (ev) => {
+      if (!dragStart) return;
+      const p = pointFromEvent(ev);
+      redraw({ type: currentTool, x1: dragStart.x, y1: dragStart.y, x2: p.x, y2: p.y, _markerId: markerId });
+    });
+    svgEl.addEventListener('pointerup', (ev) => {
+      if (!dragStart) return;
+      const p = pointFromEvent(ev);
+      if (Math.abs(p.x - dragStart.x) > 3 || Math.abs(p.y - dragStart.y) > 3) {
+        shapes.push({ type: currentTool, x1: dragStart.x, y1: dragStart.y, x2: p.x, y2: p.y, _markerId: markerId });
+      }
+      dragStart = null;
+      redraw();
+    });
+
+    return { getShapes: () => shapes.map(({ _markerId, ...rest }) => rest) };
+  }
+
+  function drawingThumbnail(drawingDataJson) {
+    if (!drawingDataJson) return '<span style="color:var(--text-muted);font-size:0.8rem;">sem desenho</span>';
+    let shapes;
+    try { shapes = JSON.parse(drawingDataJson); } catch { return '—'; }
+    const markerId = `arrowhead-${svgMarkerSeq++}`;
+    const withMarker = shapes.map((s) => ({ ...s, _markerId: markerId }));
+    return `<svg viewBox="0 0 420 300" width="90" height="64" style="border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);">
+      <defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor" /></marker></defs>
+      ${shapesToSvgInner(withMarker)}
+    </svg>`;
+  }
+
   async function viewTipologias() {
     setLoading('tipologias');
     try {
       const typologies = await api('/tipologias');
-      renderTipologias(typologies);
+      renderTipologias(typologies, null);
     } catch (err) {
       setError(err);
     }
   }
 
-  function renderTipologias(typologies) {
+  async function viewTipologiaEditar(id) {
+    setLoading('tipologia');
+    try {
+      const [typologies, typology] = await Promise.all([api('/tipologias'), api(`/tipologias/${id}`)]);
+      renderTipologias(typologies, typology);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderTipologias(typologies, editing) {
     const rows = typologies.map((t) => `
       <tr>
+        <td>${drawingThumbnail(t.drawing_data)}</td>
         <td>${esc(t.name)}</td>
         <td>${esc(t.category)}</td>
         <td>${t.has_baguete ? 'Sim' : 'Não'}</td>
         <td>${t.is_common_in_brazil ? 'Sim' : 'Não'}</td>
+        <td><a href="#/tipologias/${t.id}/editar">Editar</a></td>
       </tr>
     `).join('');
 
     app.innerHTML = `
       <div class="page-head">
         <h1>Tipologias</h1>
-        <p>${typologies.length} tipologia(s) cadastrada(s). Usadas em vãos e fórmulas.</p>
+        <p>${typologies.length} tipologia(s) cadastrada(s). Usadas em vãos e fórmulas. Desenhe o esquema (marco, folha,
+        sentido de abertura) direto no quadro abaixo.</p>
       </div>
       <div class="form-box">
-        <form class="form-grid" id="typology-form">
-          <div class="field"><label for="ty-name">Nome *</label><input id="ty-name" name="name" type="text" required /></div>
-          <div class="field"><label for="ty-category">Categoria *</label>
-            <select id="ty-category" name="category" required>${enumOptions(TYPOLOGY_CATEGORIES)}</select>
+        <form id="typology-form">
+          <div class="form-grid" style="margin-bottom:0.9rem;">
+            <div class="field"><label for="ty-name">Nome *</label><input id="ty-name" type="text" value="${esc(editing ? editing.name : '')}" required /></div>
+            <div class="field"><label for="ty-category">Categoria *</label>
+              <select id="ty-category" required>${enumOptions(TYPOLOGY_CATEGORIES, editing ? editing.category : '')}</select>
+            </div>
+            <div class="field"><label for="ty-baguete">Tem baguete?</label>
+              <select id="ty-baguete">
+                <option value="0" ${editing && !editing.has_baguete ? 'selected' : ''}>Não</option>
+                <option value="1" ${editing && editing.has_baguete ? 'selected' : ''}>Sim</option>
+              </select>
+            </div>
           </div>
-          <div class="field"><label for="ty-baguete">Tem baguete?</label>
-            <select id="ty-baguete" name="has_baguete"><option value="0">Não</option><option value="1">Sim</option></select>
+          <div class="section-title" style="margin-top:0;">Desenho esquemático</div>
+          <div id="typology-drawing"></div>
+          <div style="margin-top:0.8rem;display:flex;gap:0.6rem;">
+            <button class="btn" type="submit">${editing ? 'Salvar alterações' : 'Cadastrar tipologia'}</button>
+            ${editing ? '<a href="#/tipologias" class="btn btn-ghost">Cancelar edição</a>' : ''}
           </div>
-          <button class="btn" type="submit">Cadastrar tipologia</button>
         </form>
         <div id="typology-form-error"></div>
       </div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Nome</th><th>Categoria</th><th>Baguete</th><th>Comum no Brasil</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted)">Nenhuma tipologia cadastrada.</td></tr>'}</tbody>
+          <thead><tr><th>Desenho</th><th>Nome</th><th>Categoria</th><th>Baguete</th><th>Comum no Brasil</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="color:var(--text-muted)">Nenhuma tipologia cadastrada.</td></tr>'}</tbody>
         </table>
       </div>
     `;
 
+    let initialShapes = [];
+    if (editing && editing.drawing_data) {
+      try { initialShapes = JSON.parse(editing.drawing_data); } catch { initialShapes = []; }
+    }
+    const editor = mountDrawingEditor(document.getElementById('typology-drawing'), initialShapes, false);
+
     document.getElementById('typology-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      const data = new FormData(ev.target);
       const errBox = document.getElementById('typology-form-error');
       errBox.innerHTML = '';
+      const payload = {
+        name: document.getElementById('ty-name').value,
+        category: document.getElementById('ty-category').value,
+        has_baguete: Number(document.getElementById('ty-baguete').value),
+        is_common_in_brazil: 1,
+        drawing_data: JSON.stringify(editor.getShapes()),
+      };
       try {
-        await apiPost('/tipologias', {
-          name: data.get('name'),
-          category: data.get('category'),
-          has_baguete: Number(data.get('has_baguete')),
-          is_common_in_brazil: 1,
-        });
+        if (editing) {
+          await apiSend('PUT', `/tipologias/${editing.id}`, payload);
+        } else {
+          await apiPost('/tipologias', payload);
+        }
+        window.location.hash = '#/tipologias';
         viewTipologias();
       } catch (err) {
         errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
@@ -1596,6 +1766,10 @@
     if (segments[0] === 'formulas') {
       setActiveNav('formulas');
       return viewFormulas();
+    }
+    if (segments[0] === 'tipologias' && segments[1] && segments[2] === 'editar') {
+      setActiveNav('tipologias');
+      return viewTipologiaEditar(segments[1]);
     }
     if (segments[0] === 'tipologias') {
       setActiveNav('tipologias');

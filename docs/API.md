@@ -64,6 +64,12 @@ CRUD completo (`GET`/`GET {id}`/`POST`/`PUT {id}`/`DELETE {id}`) em `/tipologias
 via `CrudController` (Correr, Giro, Maxim-Ar, Oscilobatente, Pivotante, Ribanta,
 Camarão, Guilhotina, Basculante — ver Livro 5, p.13). Filtro: `?category=`.
 
+Campo `drawing_data` (JSON, opcional): lista de formas do editor de desenho do
+frontend (retângulo/linha/seta/texto — esquema de marco/folha/sentido de
+abertura), guardada como **string JSON já serializada** pelo cliente, não como
+imagem. Não é dado extraído de catálogo (desenhado pelo próprio usuário), por
+isso não tem `source_reference_id`/`status_code` de governança.
+
 ## `GET /formulas`
 Lista fórmulas com o status da versão atual (`version_status`, `production_locked`).
 

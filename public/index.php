@@ -69,7 +69,7 @@ $router->put('/auth/senha', [new AuthController($db), 'changePassword']);
 $router->get('/fabricantes', [new ManufacturerController($db), 'index']);
 $router->get('/perfis', [new ProfileController($db), 'index']);
 $router->get('/perfis/{id}', [new ProfileController($db), 'show']);
-$registerCrud($router, '/tipologias', new CrudController($db, 'typologies', ['name', 'category', 'has_baguete', 'is_common_in_brazil'], ['category']));
+$registerCrud($router, '/tipologias', new CrudController($db, 'typologies', ['name', 'category', 'has_baguete', 'is_common_in_brazil', 'drawing_data'], ['category']));
 $registerCrud($router, '/vidros', new CrudController($db, 'glass_types', ['name', 'thickness_mm', 'glass_category', 'notes', 'status_code'], ['glass_category']));
 $router->get('/acessorios', [new CrudController($db, 'accessories', [], ['category', 'manufacturer_id']), 'index']);
 $router->get('/acessorios/{id}', [new CrudController($db, 'accessories', [], ['category', 'manufacturer_id']), 'show']);
