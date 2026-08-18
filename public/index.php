@@ -73,6 +73,7 @@ $registerCrud($router, '/tipologias', new CrudController($db, 'typologies', ['na
 $registerCrud($router, '/vidros', new CrudController($db, 'glass_types', ['name', 'thickness_mm', 'glass_category', 'notes', 'status_code'], ['glass_category']));
 $router->get('/acessorios', [new CrudController($db, 'accessories', [], ['category', 'manufacturer_id']), 'index']);
 $router->get('/acessorios/{id}', [new CrudController($db, 'accessories', [], ['category', 'manufacturer_id']), 'show']);
+$router->get('/acessorios-compatibilidades', [new CrudController($db, 'accessory_compatibilities', [], ['accessory_id', 'typology_id']), 'index']);
 $router->get('/formulas', [new FormulaController($db), 'index']);
 $router->get('/formulas/{id}', [new FormulaController($db), 'show']);
 $router->get('/formulas/{id}/checklist-producao', [new FormulaController($db), 'checklist']);

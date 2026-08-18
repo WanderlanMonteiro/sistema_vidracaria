@@ -177,6 +177,77 @@
     return qs ? `?${qs}` : '';
   }
 
+  async function viewAcessorios(params) {
+    setLoading('acessórios');
+    try {
+      const categoryFilter = params.get('category') || '';
+      const query = categoryFilter ? `?category=${categoryFilter}` : '';
+      const [accessories, manufacturers, compat, drawings, typologies] = await Promise.all([
+        api(`/acessorios${query}`),
+        api('/fabricantes'),
+        api('/acessorios-compatibilidades'),
+        api('/desenhos-tecnicos?subject_type=ACCESSORY'),
+        api('/tipologias'),
+      ]);
+      renderAcessorios(accessories, manufacturers, compat, drawings, typologies, categoryFilter);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderAcessorios(accessories, manufacturers, compat, drawings, typologies, categoryFilter) {
+    const manufacturerById = Object.fromEntries(manufacturers.map((m) => [String(m.id), m.name]));
+    const typologyById = Object.fromEntries(typologies.map((t) => [String(t.id), t.name]));
+    const drawingByAccessory = Object.fromEntries(drawings.map((d) => [String(d.subject_id), d]));
+    const compatByAccessory = {};
+    compat.forEach((c) => {
+      if (!compatByAccessory[String(c.accessory_id)]) compatByAccessory[String(c.accessory_id)] = [];
+      compatByAccessory[String(c.accessory_id)].push(c);
+    });
+
+    const categories = [...new Set(accessories.map((a) => a.category).filter(Boolean))].sort();
+
+    const cards = accessories.map((a) => {
+      const drawing = drawingByAccessory[String(a.id)];
+      const applications = compatByAccessory[String(a.id)] || [];
+      const appHtml = applications.map((c) => {
+        const typ = c.typology_id ? typologyById[String(c.typology_id)] : null;
+        return `<div class="sub">${typ ? `<span class="chip info">${esc(typ)}</span> ` : ''}${esc(c.notes || '')}</div>`;
+      }).join('');
+      return `
+        <div class="card">
+          ${drawing ? `<img src="/${esc(drawing.file_path)}" alt="" style="width:100%;border-radius:6px;margin-bottom:0.6rem;border:1px solid var(--border);" loading="lazy" />` : ''}
+          <h2 class="mono" style="font-size:0.95rem;">${esc(a.code)}</h2>
+          <div class="sub">${esc(a.name || '—')}</div>
+          <div style="margin:0.4rem 0;"><span class="chip warn">${esc(a.category || 'OUTRO')}</span> <span class="sub">${esc(manufacturerById[String(a.manufacturer_id)] || '')}</span></div>
+          ${appHtml}
+        </div>
+      `;
+    }).join('');
+
+    app.innerHTML = `
+      <div class="page-head">
+        <h1>Acessórios</h1>
+        <p>${accessories.length} ferragem(ns)/acessório(s) catalogado(s). A aplicação (embaixo de cada item) vem do
+        próprio catálogo; o selo colorido só aparece quando bate com uma tipologia já cadastrada.</p>
+      </div>
+      <div class="filters">
+        <div class="field">
+          <label for="ac-category">Categoria</label>
+          <select id="ac-category">
+            <option value="">Todas</option>
+            ${categories.map((c) => `<option value="${c}" ${c === categoryFilter ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="card-grid">${cards || '<div class="state">Nenhum acessório encontrado.</div>'}</div>
+    `;
+
+    document.getElementById('ac-category').addEventListener('change', (ev) => {
+      window.location.hash = ev.target.value ? `#/acessorios?category=${ev.target.value}` : '#/acessorios';
+    });
+  }
+
   function statusPillForData(statusCode) {
     if (!statusCode) return '<span class="chip warn">—</span>';
     if (statusCode === 'PENDENTE' || statusCode === 'NECESSITA_CONFERENCIA') {
@@ -1754,6 +1825,10 @@
     if (segments[0] === 'perfis') {
       setActiveNav('perfis');
       return viewPerfis(params);
+    }
+    if (segments[0] === 'acessorios') {
+      setActiveNav('acessorios');
+      return viewAcessorios(params);
     }
     if (segments[0] === 'formulas' && segments[1] === 'nova') {
       setActiveNav('formulas');

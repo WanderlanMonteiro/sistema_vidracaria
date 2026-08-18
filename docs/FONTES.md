@@ -201,3 +201,69 @@ de tipologia. Prioridade sugerida: usar a tabela CEHOP para enriquecer
 `typologies.notes` (vantagens/desvantagens por tipo) e o checklist Hydro como seed
 inicial de `inspection_checklists` para recebimento de perfil / inspeção de produto
 acabado.
+
+## Catálogo Super5 — Ferragens para Vidros Temperados (2026-08-18)
+
+Fonte: `CatalogoFerragensVidroSuper5.pdf`, 54 páginas (pág. 1 capa, pág. 2-53 itens,
+pág. 54 tabela de cores de acabamento). Extração feita por script
+(`scripts/generate_super5_seed.php`, gera `database/seeds/0020_super5_ferragens.sql`)
+a partir da transcrição página a página de todo o catálogo — não foi feita
+amostragem, as 52 páginas de itens foram lidas por completo.
+
+**Carregado:**
+- Fabricante `Super5` + `technical_sources`/`source_references` (uma por página).
+- **228 acessórios** (`accessories`), código+nome exatamente como impresso, categoria
+  classificada por palavra-chave (DOBRADICA/ROLDANA/FECHADURA/TRINCO/FECHO/PUXADOR/
+  MOLA/SUPORTE/GRAPA/CANTONEIRA/OUTRO — regra determinística, ver função `classify()`
+  no script). `status_code = CATALOGADO`, `origin_type = ENCONTRADO_DOCUMENTO`.
+- **228 linhas em `accessory_compatibilities`** (uma por acessório) com `notes` =
+  aplicação tal como impressa no catálogo — **todo item tem a aplicação registrada**,
+  como pedido. `typology_id` só é preenchido quando o nome cita literalmente
+  "correr", "basculante", "maxim-ar"/"maximar", "pivotante" ou "porta de giro" (as
+  únicas 5 categorias de `typologies` com correspondência inequívoca): **41 itens**
+  ficaram vinculados (21 Correr, 9 Basculante, 5 Maxim-Ar, 5 Pivotante, 1 Giro). Os
+  outros **187** ficaram com `typology_id NULL` — aplicação registrada,
+  mas sem tipologia formal porque ela não existe ainda no sistema (ver abaixo).
+- **228 imagens** (`technical_drawings`, `subject_type='ACCESSORY'`) — a página
+  inteira do catálogo (`public/uploads/catalogos/super5/pagina-NN.jpg`, renderizada
+  do PDF original a 150dpi/JPEG), já que o catálogo não tem uma imagem individual
+  recortada por item (cada página mostra 3-4 itens). Vários acessórios da mesma
+  página compartilham a mesma imagem — é o comportamento esperado, não duplicidade.
+- Nova tela **Acessórios** no frontend (lista com imagem, filtro por categoria).
+- Nova rota `GET /acessorios-compatibilidades`.
+
+**Não carregado / decisões explícitas:**
+- **Excluídos por não serem ferragem** (embalagem/armazenagem): Papel Crepado,
+  Filme Strech, Fita dupla face, Gaveta para armazenagem (não tinha código de
+  produto legível, só uma tabela de tamanhos).
+- Item de código **1587** aparece **duas vezes no catálogo original com o mesmo
+  código** (p.36: "Haste para Maxim-Ar" e "Conjunto acessório V/V para haste com 2
+  furos") — preservado como uma linha só, combinando os dois nomes, em vez de
+  inventar um código novo pra desdobrar.
+- `1607i`/`1607` (puxador de madeira, cor Imbuia/marfim), `1047`/`1047A` e outros
+  pares de variante sem texto distintivo além do código foram cadastrados como duas
+  linhas idênticas em nome (mudando só o código) — a diferença real entre eles
+  (ex: lado direito/esquerdo, dimensão) não está escrita no catálogo de forma
+  legível para esses casos específicos.
+
+**Pendência para o usuário confirmar — candidatos a tipologia nova:**
+Boa parte do catálogo é ferragem para aplicações de vidro temperado que **não têm
+tipologia cadastrada** (as 9 tipologias atuais são as de esquadria de alumínio do
+Livro 5). Candidatos que aparecem repetidamente nos 187 itens sem vínculo, pela
+contagem de palavra-chave no texto de aplicação:
+
+| Candidato a tipologia | Menções | Exemplos de código |
+|---|---|---|
+| Box (blindex) | 12 | 1114, 1115, 1125E, 1150S, 1350, 2021/2022 (Kit Millennium), 2024/2025 (Kit articulado), 1629/1630/1629TEK (puxador) |
+| Porta/painel granito-alvenaria-madeira (dobradiça/cantoneira "universal") | ~15 (várias linhas citam os três materiais juntos) | 1750, 1751, 1755, 1756D/E, 1760, 1761, 1762 |
+| Sacada/guarda-corpo | 2 | 1334, 1334TB (grapa para sacada) |
+| Porta sanfonada | 2 | 1332, 1403 |
+| Rack/móvel com porta de vidro | 3 | 1141, 1913, 1913P |
+| Vitrine | 1 | 1912 |
+| Espelho (não é bem uma "tipologia" de esquadria, é fixação de espelho) | ~3 | 2001, 2002, 2009 |
+
+Nenhuma dessas foi criada como tipologia nova — segue a mesma régua de sempre
+(nada inventado sem confirmação). Se o usuário quiser, pode cadastrar essas
+tipologias pela tela **Tipologias** (já tem editor de desenho) e depois eu volto
+nas 187 linhas de `accessory_compatibilities` pra preencher o `typology_id` que
+hoje está NULL.

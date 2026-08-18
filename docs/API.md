@@ -59,6 +59,14 @@ Lista perfis (máx. 200 por chamada). Filtros via query string:
 Detalhe de um perfil, incluindo fabricante, linha e a citação de fonte (`source_title`,
 `page_number`, `source_url`).
 
+## `GET /acessorios` / `GET /acessorios/{id}`
+Lista ferragens/acessórios (catálogo, só leitura). Filtros: `?category=&manufacturer_id=`.
+
+## `GET /acessorios-compatibilidades`
+Vínculo de aplicação de cada acessório (`notes` = aplicação como impressa na fonte;
+`typology_id` só preenchido quando bate literalmente com uma tipologia já
+cadastrada — ver `docs/FONTES.md`, seção "Catálogo Super5"). Filtros: `?accessory_id=&typology_id=`.
+
 ## Tipologias
 CRUD completo (`GET`/`GET {id}`/`POST`/`PUT {id}`/`DELETE {id}`) em `/tipologias`
 via `CrudController` (Correr, Giro, Maxim-Ar, Oscilobatente, Pivotante, Ribanta,
