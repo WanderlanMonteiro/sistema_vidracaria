@@ -271,11 +271,45 @@ hoje está NULL.
 **Atualização (2026-08-19):** as tipologias Box (de canto/frontal/frontal de giro),
 Sacada (Kit Sacada, Guarda-corpo), Sanfonada (3 folhas e 6 peças) e Vitrine
 (Vitrine Fixa 3 Peças) **já existem agora**, cadastradas a partir da apostila
-técnica (ver seção abaixo). O vínculo retroativo das 187 linhas de
-`accessory_compatibilities` ainda não foi feito — cada uma precisa ser conferida
-individualmente contra o texto de aplicação real do Super5 antes de escolher a
-tipologia específica (ex: qual das 3 variantes de Box), pra não errar o vínculo em
-lote. Fica como próximo passo.
+técnica (ver seção abaixo).
+
+**Vínculo retroativo (`0022_super5_vinculo_tipologias_temperado.sql`):** as 187
+linhas pendentes foram conferidas **uma a uma** pelo texto de aplicação real do
+Super5 (não em lote por palavra-chave solta) — **22 receberam vínculo**, as
+outras **165 seguem sem vínculo** porque o texto não permite escolher uma
+tipologia específica sem inventar informação:
+
+| Vínculo feito | Tipologia | Motivo |
+|---|---|---|
+| 2021, 2022, 2024, 2025 (Kit Millennium/articulado) | Box Frontal | cita "box frontal" literalmente |
+| 1350 (suporte superior a 90°) | Box de Canto | ângulo de 90° = configuração de canto, não frontal/giro |
+| 1334, 1334TB (grapa para sacada) | Guarda-corpo / Sacada de Vidro | "grapa para sacada" = fixação de painel, igual à peça AF 75 da apostila p.29 |
+| 1315 (suporte com batedeira p/ união de 3 vidros) | Vitrine Fixa 3 Peças | "união de 3 vidros" bate com a montagem de 3 peças |
+| 1000 (engate p/ corrente em alvenaria) | Basculante (tipologia já existente do Livro 5) | mesma família dos itens 1003/1003A/1003CM já vinculados a essa tipologia |
+| 1750, 1751, 1755, 1756D, 1756E (dobradiça), 1760, 1761, 1762 (cantoneira), 1504A/1504AX/1504ATD/1504ATE (batedeira em alvenaria), 1531 (contra-fechadura) | Porta Pivotante Única (Vidro Temperado) | porta de vidro giratória fixada direto em madeira/alvenaria/granito, sem marco de alumínio — mesma família da instalação "com cantoneira" citada na tabela de folgas (apostila p.32); 1504-família/1531 são o par fechadura/batedeira do mesmo conjunto |
+
+**Deixado sem vínculo, por categoria (as 165 restantes):**
+- **"Para box" genérico** (dobradiça 1114/1115, roldana 1125E/1150S, puxador
+  1629/1629TEK/1630): não diz qual das 3 variantes (canto/frontal/giro) — forçar
+  uma escolha seria inventar especificidade que a fonte não tem.
+- **"Porta sanfonada" genérico** (1332, 1403) e **roldana p/ trilho 1030** (1150,
+  sem dizer "box"): trilho 1030 é usado nas duas variantes de sanfonada *e* na
+  porta de correr com mão amiga — ambíguo entre 3 tipologias.
+- **Fechadura para vitrine com porta** (1912 "fechadura morcego para vitrines"):
+  as duas tipologias de vitrine cadastradas são **fixas** (sem porta); uma
+  fechadura não se aplica a nenhuma delas — vínculo incorreto seria pior que
+  nenhum vínculo.
+- **Dobradiça pivotante genérica sem material** (1101, 1101M, 1102, 1102G, 1102M):
+  já estavam vinculadas à tipologia **Pivotante** (Livro 5, esquadria de
+  alumínio) desde a extração original do Super5 — mantido como estava, não
+  remapeado para a tipologia nova.
+- **Rack** (1141, 1913, 1913P) e **espelho** (2001, 2002, Convexo, Fixa espelho):
+  não têm tipologia cadastrada (rack não é uma das 21 tipologias novas; espelho
+  não é uma tipologia de esquadria).
+- **Genéricos de qualquer montagem** (parafuso, porca, escova, guarnição, mola,
+  batedeira/cantoneira sem material especificado, "conjunto deslizante" etc.):
+  usados em várias tipologias ao mesmo tempo, sem informação no catálogo para
+  escolher uma só.
 
 ## Apostila Técnica para Vidros de Segurança (curso temperado) — (2026-08-19)
 
