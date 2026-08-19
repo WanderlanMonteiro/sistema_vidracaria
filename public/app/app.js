@@ -864,21 +864,22 @@
   async function viewOrcamentoDetail(id) {
     setLoading('orçamento');
     try {
-      const [quote, items, accessories, formulas, glassTypes] = await Promise.all([
+      const [quote, items, accessories, formulas, glassTypes, drawings] = await Promise.all([
         api(`/orcamentos/${id}`),
         api(`/orcamentos-itens?quote_id=${id}`),
         api(`/orcamentos-acessorios?quote_id=${id}`),
         api('/formulas'),
         api('/vidros'),
+        api('/desenhos-tecnicos?subject_type=TYPOLOGY'),
       ]);
       const project = await api(`/projetos/${quote.project_id}`).catch(() => null);
-      renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes);
+      renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes, drawings);
     } catch (err) {
       setError(err);
     }
   }
 
-  function renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes) {
+  function renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes, drawings) {
     const rows = items.map((it) => {
       const area = lineAreaM2(it);
       return `
@@ -936,6 +937,7 @@
               <select id="qi-pricing"><option value="UN">Valor fechado (R$)</option><option value="M2">Por m² (R$/m²)</option></select>
             </div>
           </div>
+          <div id="qi-drawing-preview"></div>
           <div class="form-grid" style="margin-bottom:0.4rem;">
             <div class="field"><label for="qi-w1">Largura 1 (mm)</label><input id="qi-w1" type="number" step="1" /></div>
             <div class="field"><label for="qi-w2">Largura 2 (mm, se fora de esquadro)</label><input id="qi-w2" type="number" step="1" /></div>
@@ -990,6 +992,21 @@
     ['qi-pricing', 'qi-w1', 'qi-w2', 'qi-h1', 'qi-h2'].forEach((id) => {
       document.getElementById(id).addEventListener('input', updatePriceLabelAndPreview);
     });
+
+    const formulaByVersionId = Object.fromEntries(formulas.filter((f) => f.current_version_id).map((f) => [String(f.current_version_id), f]));
+    const drawingByTypology = {};
+    (drawings || []).forEach((d) => { drawingByTypology[String(d.subject_id)] = d; });
+
+    function updateDrawingPreview() {
+      const box = document.getElementById('qi-drawing-preview');
+      const formula = formulaByVersionId[document.getElementById('qi-formula').value];
+      const drawing = formula && formula.typology_id ? drawingByTypology[String(formula.typology_id)] : null;
+      box.innerHTML = drawing
+        ? `<div class="sub" style="margin-bottom:0.4rem;">Desenho técnico da tipologia "${esc(formula.typology || '')}":</div>
+           <img src="/${esc(drawing.file_path)}" alt="" style="max-width:280px;border-radius:6px;border:1px solid var(--border);margin-bottom:0.7rem;" />`
+        : '';
+    }
+    document.getElementById('qi-formula').addEventListener('change', updateDrawingPreview);
 
     document.getElementById('quote-item-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
@@ -1386,7 +1403,7 @@
 
   // --- Tipologias ----------------------------------------------------------
 
-  const TYPOLOGY_CATEGORIES = ['CORRER', 'GIRO', 'MAXIM_AR', 'OSCILOBATENTE', 'PIVOTANTE', 'RIBANTA', 'CAMARAO', 'GUILHOTINA', 'BASCULANTE'];
+  const TYPOLOGY_CATEGORIES = ['CORRER', 'GIRO', 'MAXIM_AR', 'OSCILOBATENTE', 'PIVOTANTE', 'RIBANTA', 'CAMARAO', 'GUILHOTINA', 'BASCULANTE', 'VIDRO_TEMPERADO'];
 
   // --- Editor de desenho (retângulo/linha/seta/texto sobre SVG) ------------
   // Formas guardadas como dado estruturado (não imagem), pra poder reabrir e
@@ -1526,8 +1543,8 @@
   async function viewTipologias() {
     setLoading('tipologias');
     try {
-      const typologies = await api('/tipologias');
-      renderTipologias(typologies, null);
+      const [typologies, drawings] = await Promise.all([api('/tipologias'), api('/desenhos-tecnicos?subject_type=TYPOLOGY')]);
+      renderTipologias(typologies, null, drawings);
     } catch (err) {
       setError(err);
     }
@@ -1536,30 +1553,44 @@
   async function viewTipologiaEditar(id) {
     setLoading('tipologia');
     try {
-      const [typologies, typology] = await Promise.all([api('/tipologias'), api(`/tipologias/${id}`)]);
-      renderTipologias(typologies, typology);
+      const [typologies, typology, drawings] = await Promise.all([
+        api('/tipologias'), api(`/tipologias/${id}`), api('/desenhos-tecnicos?subject_type=TYPOLOGY'),
+      ]);
+      renderTipologias(typologies, typology, drawings);
     } catch (err) {
       setError(err);
     }
   }
 
-  function renderTipologias(typologies, editing) {
-    const rows = typologies.map((t) => `
+  function renderTipologias(typologies, editing, drawings) {
+    const drawingByTypology = {};
+    (drawings || []).forEach((d) => { drawingByTypology[String(d.subject_id)] = d; });
+
+    const rows = typologies.map((t) => {
+      const realDrawing = drawingByTypology[String(t.id)];
+      const thumb = realDrawing
+        ? `<img src="/${esc(realDrawing.file_path)}" alt="" style="width:64px;border-radius:4px;border:1px solid var(--border);" loading="lazy" />`
+        : drawingThumbnail(t.drawing_data);
+      return `
       <tr>
-        <td>${drawingThumbnail(t.drawing_data)}</td>
+        <td>${thumb}</td>
         <td>${esc(t.name)}</td>
         <td>${esc(t.category)}</td>
         <td>${t.has_baguete ? 'Sim' : 'Não'}</td>
         <td>${t.is_common_in_brazil ? 'Sim' : 'Não'}</td>
         <td><a href="#/tipologias/${t.id}/editar">Editar</a></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
+
+    const editingDrawing = editing ? drawingByTypology[String(editing.id)] : null;
 
     app.innerHTML = `
       <div class="page-head">
         <h1>Tipologias</h1>
-        <p>${typologies.length} tipologia(s) cadastrada(s). Usadas em vãos e fórmulas. Desenhe o esquema (marco, folha,
-        sentido de abertura) direto no quadro abaixo.</p>
+        <p>${typologies.length} tipologia(s) cadastrada(s). Usadas em vãos, fórmulas e no item do orçamento. Tipologias
+        extraídas de catálogo/apostila já vêm com o desenho técnico real da fonte; as demais você desenha no quadro
+        abaixo (marco, folha, sentido de abertura). <a href="#/deducoes-instalacao">Ver tabela de folgas de instalação →</a></p>
       </div>
       <div class="form-box">
         <form id="typology-form">
@@ -1575,7 +1606,12 @@
               </select>
             </div>
           </div>
-          <div class="section-title" style="margin-top:0;">Desenho esquemático</div>
+          ${editingDrawing ? `
+            <div class="section-title" style="margin-top:0;">Desenho técnico (fonte: ${esc(editing.notes || 'catálogo/apostila')})</div>
+            <img src="/${esc(editingDrawing.file_path)}" alt="${esc(editingDrawing.caption || '')}" style="max-width:100%;border-radius:6px;border:1px solid var(--border);margin-bottom:0.4rem;" />
+            <div class="sub" style="margin-bottom:1rem;">${esc(editingDrawing.caption || '')}</div>
+          ` : ''}
+          <div class="section-title" style="margin-top:0;">Desenho esquemático (desenhado no sistema)</div>
           <div id="typology-drawing"></div>
           <div style="margin-top:0.8rem;display:flex;gap:0.6rem;">
             <button class="btn" type="submit">${editing ? 'Salvar alterações' : 'Cadastrar tipologia'}</button>
@@ -1621,6 +1657,46 @@
         errBox.innerHTML = `<div class="state error" style="padding:0.5rem 0;">${esc(err.message)}</div>`;
       }
     });
+  }
+
+  async function viewDeducoesInstalacao() {
+    setLoading('tabela de folgas');
+    try {
+      const [deductions, typologies] = await Promise.all([api('/deducoes-instalacao'), api('/tipologias')]);
+      renderDeducoesInstalacao(deductions, typologies);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderDeducoesInstalacao(deductions, typologies) {
+    const typologyById = Object.fromEntries(typologies.map((t) => [String(t.id), t.name]));
+    const rows = deductions.map((d) => `
+      <tr>
+        <td class="wrap">${esc(d.installation_type)}</td>
+        <td>${d.typology_id ? esc(typologyById[String(d.typology_id)] || '') : '<span class="sub">—</span>'}</td>
+        <td class="num mono">${esc(d.moving_height_mm || '—')}</td>
+        <td class="num mono">${esc(d.fixed_height_mm || '—')}</td>
+        <td class="num mono">${esc(d.total_width_mm || '—')}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <p><a href="#/tipologias" class="btn-ghost">&larr; Voltar para tipologias</a></p>
+      <div class="page-head">
+        <h1>Tabela de folgas de instalação</h1>
+        <p>${deductions.length} tipo(s) de instalação. Fonte: apostila técnica de vidros temperados (p.32) --
+        "cada medidor tem sua própria folga, já que não existe folga padrão" (citação literal da fonte). Os valores
+        são descontos em mm da folha em relação à medida do vão (largura/altura), a conferir antes de aplicar em
+        produção -- referência de apoio ao cálculo, não uma regra travada do sistema.</p>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Tipo de instalação</th><th>Tipologia vinculada</th><th>Altura móvel</th><th>Altura fixos</th><th>Largura total</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="color:var(--text-muted)">Nenhuma folga cadastrada.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
   }
 
   // --- Nova fórmula ----------------------------------------------------------
@@ -2138,6 +2214,10 @@
     if (segments[0] === 'tipologias') {
       setActiveNav('tipologias');
       return viewTipologias();
+    }
+    if (segments[0] === 'deducoes-instalacao') {
+      setActiveNav('tipologias');
+      return viewDeducoesInstalacao();
     }
     if (segments[0] === 'clientes') {
       setActiveNav('clientes');

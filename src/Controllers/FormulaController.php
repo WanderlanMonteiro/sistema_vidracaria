@@ -22,7 +22,7 @@ final class FormulaController
     /** @param array<string, string> $params */
     public function index(Request $request, array $params): void
     {
-        $sql = 'SELECT f.id, f.name, f.is_reference_only, f.status_code, t.name AS typology, pl.name AS product_line,
+        $sql = 'SELECT f.id, f.name, f.is_reference_only, f.status_code, f.typology_id, t.name AS typology, pl.name AS product_line,
                        fv.id AS current_version_id, fv.version_number, fv.status_code AS version_status, fv.production_locked
                 FROM formulas f
                 LEFT JOIN typologies t ON t.id = f.typology_id

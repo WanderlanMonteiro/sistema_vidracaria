@@ -267,3 +267,97 @@ Nenhuma dessas foi criada como tipologia nova — segue a mesma régua de sempre
 tipologias pela tela **Tipologias** (já tem editor de desenho) e depois eu volto
 nas 187 linhas de `accessory_compatibilities` pra preencher o `typology_id` que
 hoje está NULL.
+
+**Atualização (2026-08-19):** as tipologias Box (de canto/frontal/frontal de giro),
+Sacada (Kit Sacada, Guarda-corpo), Sanfonada (3 folhas e 6 peças) e Vitrine
+(Vitrine Fixa 3 Peças) **já existem agora**, cadastradas a partir da apostila
+técnica (ver seção abaixo). O vínculo retroativo das 187 linhas de
+`accessory_compatibilities` ainda não foi feito — cada uma precisa ser conferida
+individualmente contra o texto de aplicação real do Super5 antes de escolher a
+tipologia específica (ex: qual das 3 variantes de Box), pra não errar o vínculo em
+lote. Fica como próximo passo.
+
+## Apostila Técnica para Vidros de Segurança (curso temperado) — (2026-08-19)
+
+Fonte: "Apostila Técnica para Vidros de Segurança", autoria
+`suportecnicojota@hotmail.com` ("Elaboração", conteúdo de um curso técnico de
+vidro temperado), 134 páginas. Enviada em **duas versões**: primeiro como um
+`.docx` convertido a partir de um PDF (zero imagens embutidas — a conversão
+descartou todos os desenhos/fotos, só sobrou texto/tabela), depois reenviada como
+os **dois PDFs originais** (`ApostilaTecnicadeVidrodeSeguranca_1.pdf`, 100 páginas,
+e `_2.pdf`, 34 páginas) com todos os desenhos técnicos e fotos. As 134 páginas
+foram lidas por completo nas duas versões antes de qualquer extração.
+
+**Carregado:**
+- `technical_sources` (`document_type = LIVRO_TECNICO`) + `source_references` (uma
+  por página/tipologia citada).
+- **21 tipologias novas** (`typologies`, categoria nova `VIDRO_TEMPERADO` — são
+  montagens de vidro temperado **sem marco de alumínio**, ferragem direto no
+  vidro, por isso não reaproveitam os nomes das 9 tipologias de esquadria já
+  cadastradas no Livro 5, que são um produto diferente): Box de Canto, Box
+  Frontal, Box Frontal de Giro, Kit Sacada, Spider (Estrutura Aranha), Fachada
+  Glazing, Guarda-corpo/Sacada de Vidro, Max-Ar Único, Basculantes Laterais e
+  Fixo Central, Janela 2 e 4 Folhas de Correr, Vitrine Fixa 3 Peças, Vitrine Fixa
+  com Tubo e Bandeira, Porta Pivotante Única, Porta Pivotante 2 Folhas e
+  Bandeira, Porta de Correr 2 Folhas com Tubo e Bandeira, Porta de Correr 4
+  Folhas, Porta de Correr 2 Folhas Atrás da Alvenaria, Porta Sanfonada 3 Folhas e
+  6 Peças (trilho 1030), Porta de Correr 5 Folhas com Mão Amiga (trilho 1030).
+- **21 imagens técnicas reais** (`technical_drawings`, `subject_type='TYPOLOGY'`,
+  `public/uploads/catalogos/apostila-temperados/pagina-NNN.jpg`, renderizadas do
+  PDF original a 150dpi) — a página inteira da apostila, igual ao padrão já usado
+  no Super5. As páginas 33-46 ("Modelos de projetos") têm uma tipologia por
+  página; a página 23 (Box) é compartilhada por 3 tipologias — citado na legenda
+  de cada uma. Atende ao pedido de "tanto na busca que no orçamento saia o
+  desenho técnico": a lista/edição de Tipologias mostra a imagem real, e o item
+  de orçamento mostra uma prévia quando a fórmula escolhida tem tipologia com
+  desenho.
+- **Tabela de folgas de instalação** (p.32, `installation_deductions`, **24
+  linhas**) — descontos de largura/altura da folha em relação à medida do vão,
+  por tipo de instalação (porta de correr, pivotante, box, basculante, max-ar,
+  janela de correr etc.). Citação literal da fonte: *"cada medidor tem sua
+  própria folga, já que não existe folga padrão"* — por isso os valores ficam em
+  texto (aceitam `+transpasse`, `Variável`), não em número travado, e o
+  `status_code` é `EXTRAIDO` (copiado da fonte, não validado em produção). Só
+  4 das 24 linhas puderam ser vinculadas a uma tipologia específica sem
+  ambiguidade (Porta Pivotante Única ×2, Box Frontal, Box Frontal de Giro, Porta
+  de Correr 5 Folhas com Mão Amiga) — as demais descrevem variantes genéricas
+  (ex: "Janela de correr trilho AL 51") que não batem 1:1 com nenhuma das
+  tipologias cadastradas, então ficam sem vínculo mas continuam citáveis. Nova
+  tela **Tabela de folgas de instalação**, acessível a partir de Tipologias.
+- `formulas` agora expõe `typology_id` na listagem (antes só o nome), usado pelo
+  item de orçamento pra achar o desenho técnico da tipologia da fórmula
+  selecionada.
+
+**Não carregado / decisões explícitas (para não estourar o escopo com dado sem
+confiança suficiente):**
+- **Catálogo de perfis de alumínio da apostila** (p.49-58, códigos AL-1 a AL-75,
+  BX-050/051/052, U-1098, com peso kg/m) — não foi cadastrado como novo fabricante/
+  linha. É um catálogo genérico sem fabricante identificado no texto, usado só
+  como apoio de bandeira/tubo/cantoneira dessas montagens de vidro; carregar como
+  linha de produto exigiria decidir um nome de fabricante que a fonte não dá.
+- **Catálogos de ferragem Linha Santa Marina 1000** (p.81-88, códigos 1001-1810) e
+  **Linha Blindex 3000** (p.120-133, códigos 3001-3742) — apostila mostra as duas
+  linhas completas com imagem e nome de cada peça, mas **não foi re-extraída como
+  novo catálogo de acessórios** (seria um segundo levantamento do porte do Super5,
+  ~230 itens, e vários códigos aqui parecem se sobrepor aos do Super5 sem uma
+  forma seringura de cruzar automaticamente sem risco de vínculo errado). Fica
+  como catálogo disponível para uma extração futura dedicada, se o usuário
+  quiser.
+- **Diagramas de recorte/furação por código de ferragem** ("RECORTES DE
+  FERRAGENS", p.89-102, ~40 diagramas cotados em mm para os códigos Santa Marina
+  1001-1622/1629/1710/1800/1810/1813) — não foram cruzados com os 228 acessórios
+  do Super5 já cadastrados, pelo mesmo motivo acima (evitar vínculo por código
+  sem conferência individual).
+- **Fórmulas de exemplo do próprio fabricante da apostila** citadas junto aos
+  desenhos (ex: p.34 "480 + L = -A + 2" para a peça central do conjunto de
+  basculantes; p.44/45 fórmulas de divisão de portas sanfonadas por vão) —
+  citadas nas notas da tipologia correspondente, mas **não foram convertidas em
+  fórmula de corte no interpretador do sistema**: a notação é abreviada/ambígua
+  o bastante (parece anotação de sala de aula, não uma fórmula pronta pra
+  produção) que adaptá-la sem confirmação de um responsável técnico arriscaria
+  gerar corte errado — o tipo de erro que este sistema existe pra evitar.
+- **Peso do vidro (2,5 kg/m²/mm) e demais tabelas técnicas gerais** (transmissão
+  solar, tolerância de empenamento, tolerância de furos, medidas de chapas etc.,
+  p.1-20) já estavam na primeira leitura (versão .docx) e continuam apenas como
+  referência de leitura — não viraram campo estruturado no banco porque não há
+  cálculo do sistema hoje que consuma esses valores diretamente.

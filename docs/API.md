@@ -69,17 +69,37 @@ cadastrada — ver `docs/FONTES.md`, seção "Catálogo Super5"). Filtros: `?acc
 
 ## Tipologias
 CRUD completo (`GET`/`GET {id}`/`POST`/`PUT {id}`/`DELETE {id}`) em `/tipologias`
-via `CrudController` (Correr, Giro, Maxim-Ar, Oscilobatente, Pivotante, Ribanta,
-Camarão, Guilhotina, Basculante — ver Livro 5, p.13). Filtro: `?category=`.
+via `CrudController`. Duas famílias de categoria: esquadria de alumínio com
+marco/perfil (Correr, Giro, Maxim-Ar, Oscilobatente, Pivotante, Ribanta, Camarão,
+Guilhotina, Basculante — Livro 5, p.13) e `VIDRO_TEMPERADO` (montagem de vidro
+temperado sem marco de alumínio, ferragem direto no vidro — Box, Spider, Fachada
+Glazing, Guarda-corpo, Sacada, Sanfonada, Vitrine e variantes de Pivotante/
+Correr/Max-Ar sem marco, extraídas da apostila técnica de vidros temperados —
+ver `docs/FONTES.md`). Filtro: `?category=`.
 
 Campo `drawing_data` (JSON, opcional): lista de formas do editor de desenho do
 frontend (retângulo/linha/seta/texto — esquema de marco/folha/sentido de
 abertura), guardada como **string JSON já serializada** pelo cliente, não como
 imagem. Não é dado extraído de catálogo (desenhado pelo próprio usuário), por
-isso não tem `source_reference_id`/`status_code` de governança.
+isso não tem `source_reference_id`/`status_code` de governança. Quando a
+tipologia foi extraída de catálogo/apostila, o desenho técnico real vem por
+`GET /desenhos-tecnicos?subject_type=TYPOLOGY&subject_id=` (imagem da página
+original, não o `drawing_data`).
+
+## `GET /deducoes-instalacao`
+Tabela de folgas/descontos de instalação (largura/altura da folha em relação ao
+vão) por tipo de instalação — apostila técnica de vidros temperados, p.32. Cada
+linha tem `installation_type` (texto), `moving_height_mm`/`fixed_height_mm`/
+`total_width_mm` (texto, não número — aceitam `+transpasse`/`Variável`, já que a
+fonte afirma que não existe folga padrão) e `typology_id` opcional (só quando o
+tipo de instalação bate sem ambiguidade com uma tipologia cadastrada). Filtro:
+`?typology_id=`. Referência de apoio ao cálculo, `status_code = EXTRAIDO` — não é
+regra travada de produção.
 
 ## `GET /formulas`
-Lista fórmulas com o status da versão atual (`version_status`, `production_locked`).
+Lista fórmulas com o status da versão atual (`version_status`, `production_locked`)
+e `typology_id` (usado pelo frontend do orçamento pra achar o desenho técnico da
+tipologia da fórmula escolhida).
 
 ## `GET /formulas/{id}`
 Detalhe de uma fórmula: componentes (`formula_components`) e deduções/folgas
