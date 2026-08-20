@@ -97,12 +97,13 @@ $registerCrud($router, '/ambientes', new CrudController($db, 'environments', ['p
 $registerCrud($router, '/vaos', new CrudController($db, 'openings', ['environment_id', 'typology_id', 'width_mm', 'height_mm', 'quantity', 'notes'], ['environment_id']));
 $registerCrud($router, '/orcamentos', new CrudController($db, 'quotes', ['project_id', 'seller_id', 'status', 'total_value'], ['project_id', 'status']));
 $registerCrud($router, '/orcamentos-itens', new CrudController($db, 'quote_items', [
-    'quote_id', 'opening_id', 'formula_version_id', 'description', 'quantity', 'unit_price', 'total_price',
+    'quote_id', 'opening_id', 'formula_version_id', 'typology_id', 'description', 'quantity', 'unit_price', 'total_price',
     'width_mm', 'width_mm_2', 'height_mm', 'height_mm_2', 'glass_type_id', 'pricing_unit',
 ], ['quote_id']));
 $registerCrud($router, '/orcamentos-acessorios', new CrudController($db, 'quote_accessories', ['quote_id', 'accessory_id', 'description', 'quantity'], ['quote_id']));
 $router->get('/orcamentos/{id}/relatorio-compras', [new QuoteReportController($db), 'purchaseReport']);
 $router->get('/orcamentos/{id}/relatorio-tempera', [new QuoteReportController($db), 'temperingReport']);
+$router->get('/orcamentos/{id}/relatorio-corte', [new QuoteReportController($db), 'cuttingReport']);
 
 // --- Pedido de têmpera (rastreável: pendente/enviado/recebido) ---
 $router->get('/pedidos-tempera', [new CrudController($db, 'tempering_orders', [], ['status', 'quote_id', 'supplier_id']), 'index']);

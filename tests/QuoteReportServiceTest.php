@@ -114,4 +114,33 @@ test('acessórios avulsos do orçamento são somados por descrição', function 
     assertEqualsFloat(1.0, $byDescription['Fechadura']);
 });
 
+test('relatório de corte: peças individuais agrupadas por perfil+comprimento, não somadas em metros', function () {
+    $db = makeQuoteReportDb();
+    $db->exec("INSERT INTO formula_versions (id, status_code, production_locked) VALUES (1, 'LIBERADO_PRODUCAO', 0)");
+    $db->exec("INSERT INTO formula_components (formula_version_id, component_role, profile_id, quantity, expression) VALUES
+        (1, 'MARCO_LARGURA', 10, 2, 'L - 10'),
+        (1, 'MARCO_ALTURA', 10, 2, 'A - 10')");
+    $db->exec("INSERT INTO profiles (id, code, name) VALUES (10, 'MP-100', 'Marco teste')");
+    // dois itens diferentes, larguras diferentes -> devem virar cortes distintos, não uma soma.
+    $db->exec("INSERT INTO quote_items (id, quote_id, formula_version_id, description, quantity, width_mm, height_mm) VALUES
+        (1, 1, 1, 'Janela sala', 1, 1000, 1200),
+        (2, 1, 1, 'Janela quarto', 2, 800, 1200)");
+
+    $service = new QuoteReportService($db);
+    $report = $service->cuttingReport(1);
+
+    assertTrue(count($report) === 1, 'um único perfil no relatório');
+    $cuts = $report[0]['cuts'];
+    // MARCO_LARGURA do item 1: (1000-10)=990mm x2 peças x1 qty = 2 peças de 990mm
+    // MARCO_LARGURA do item 2: (800-10)=790mm x2 peças x2 qty = 4 peças de 790mm
+    // MARCO_ALTURA de ambos: (1200-10)=1190mm -> item1: 2 peças, item2: 4 peças = 6 peças de 1190mm (mesmo role, mesmo comprimento, funde)
+    $byLength = [];
+    foreach ($cuts as $c) {
+        $byLength[(int) $c['length_mm']] = $c['quantity'];
+    }
+    assertEqualsFloat(2.0, $byLength[990]);
+    assertEqualsFloat(4.0, $byLength[790]);
+    assertEqualsFloat(6.0, $byLength[1190]);
+});
+
 exit(runRegisteredTests('QuoteReportServiceTest') > 0 ? 1 : 0);

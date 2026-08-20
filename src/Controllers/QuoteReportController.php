@@ -28,4 +28,11 @@ final class QuoteReportController
         $service = new QuoteReportService($this->db);
         Response::json($service->temperingReport((int) $params['id']));
     }
+
+    /** @param array<string, string> $params */
+    public function cuttingReport(Request $request, array $params): void
+    {
+        $service = new QuoteReportService($this->db);
+        Response::json($service->cuttingReport((int) $params['id']));
+    }
 }

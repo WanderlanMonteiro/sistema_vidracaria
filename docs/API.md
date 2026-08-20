@@ -240,14 +240,20 @@ produção próprio; o andamento etapa-a-etapa (corte, usinagem, montagem...) é
 
 ### Itens de orçamento: medidas, m² e vão fora de esquadro
 
-`quote_items` aceita opcionalmente `formula_version_id`, `glass_type_id`, `width_mm`,
-`width_mm_2`, `height_mm`, `height_mm_2` e `pricing_unit` (`UN` ou `M2`). Quando o vão
-está fora de esquadro, informe as duas larguras e as duas alturas medidas — todo
-cálculo (m², relatório de compras, têmpera) usa sempre a **maior largura × maior
-altura** das informadas, nunca a média (regra explícita do usuário). Com
+`quote_items` aceita opcionalmente `formula_version_id`, `typology_id`, `glass_type_id`,
+`width_mm`, `width_mm_2`, `height_mm`, `height_mm_2` e `pricing_unit` (`UN` ou `M2`).
+Quando o vão está fora de esquadro, informe as duas larguras e as duas alturas medidas
+— todo cálculo (m², relatório de compras, corte, têmpera) usa sempre a **maior largura
+× maior altura** das informadas, nunca a média (regra explícita do usuário). Com
 `pricing_unit=M2`, `unit_price` é interpretado como R$/m² e o total esperado é
 `quantity × area_m2 × unit_price` — quem calcula e valida isso é o frontend antes de
 enviar; a API não recalcula `total_price` sozinha.
+
+`typology_id` é independente de `formula_version_id` — existe pra tipologias sem
+fórmula de corte (ex: as de vidro temperado sem marco de alumínio, ver
+`docs/FONTES.md`), onde não há perfil pra calcular, só vidro + acessórios avulsos.
+Quando o item tem `formula_version_id` mas não `typology_id`, o frontend usa o
+`typology_id` da própria fórmula (se tiver) pra mostrar o desenho técnico.
 
 ### `GET /orcamentos/{id}/relatorio-compras`
 Agrega, a partir dos itens do orçamento, quanto precisa comprar de:
@@ -265,6 +271,18 @@ Lista itemizada (não agregada) de toda peça de vidro do orçamento cujo
 `glass_types.glass_category = 'TEMPERADO'`, com a medida final (maior largura ×
 maior altura) — pronta pra mandar pra têmpera, já que vidro temperado não pode ser
 cortado depois.
+
+### `GET /orcamentos/{id}/relatorio-corte`
+Igual ao relatório de compras na origem dos números (mesmo `FormulaCalculationService`
+em modo estimativa), mas **não soma em metros** — devolve cada peça individual
+agrupada por perfil + comprimento + papel do componente (`component_role`), com a
+quantidade de peças daquele comprimento exato. É o que quem corta usa (precisa saber
+"5 peças de 1200mm", não "6 metros do perfil X"). Cada perfil também carrega
+`estimativa_formula_nao_liberada` com o mesmo significado do relatório de compras.
+
+A "Ficha de fabricação" (`#/orcamentos/{id}/fabricacao` no frontend) não é um endpoint
+próprio — é uma tela que junta corte + compras (vidro/acessórios) + têmpera numa folha
+só, pronta pra imprimir e mandar pra produção.
 
 ## Próximos passos sugeridos (fora do escopo desta fase)
 

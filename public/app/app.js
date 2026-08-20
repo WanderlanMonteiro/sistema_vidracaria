@@ -864,27 +864,35 @@
   async function viewOrcamentoDetail(id) {
     setLoading('orçamento');
     try {
-      const [quote, items, accessories, formulas, glassTypes, drawings] = await Promise.all([
+      const [quote, items, accessories, formulas, glassTypes, drawings, typologies] = await Promise.all([
         api(`/orcamentos/${id}`),
         api(`/orcamentos-itens?quote_id=${id}`),
         api(`/orcamentos-acessorios?quote_id=${id}`),
         api('/formulas'),
         api('/vidros'),
         api('/desenhos-tecnicos?subject_type=TYPOLOGY'),
+        api('/tipologias'),
       ]);
       const project = await api(`/projetos/${quote.project_id}`).catch(() => null);
-      renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes, drawings);
+      renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes, drawings, typologies);
     } catch (err) {
       setError(err);
     }
   }
 
-  function renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes, drawings) {
+  function renderOrcamentoDetail(quote, items, project, accessories, formulas, glassTypes, drawings, typologies) {
+    const drawingByTypology = {};
+    (drawings || []).forEach((d) => { drawingByTypology[String(d.subject_id)] = d; });
+    const typologyById = Object.fromEntries(typologies.map((t) => [String(t.id), t]));
+
     const rows = items.map((it) => {
       const area = lineAreaM2(it);
+      const typ = it.typology_id ? typologyById[String(it.typology_id)] : null;
+      const typDrawing = it.typology_id ? drawingByTypology[String(it.typology_id)] : null;
       return `
       <tr>
-        <td class="wrap">${esc(it.description)}</td>
+        <td>${typDrawing ? `<img src="/${esc(typDrawing.file_path)}" alt="" style="width:40px;border-radius:4px;border:1px solid var(--border);" loading="lazy" />` : ''}</td>
+        <td class="wrap">${esc(it.description)}${typ ? `<div class="sub">${esc(typ.name)}</div>` : ''}</td>
         <td>${area !== null ? fmtNum(area, 2) + ' m²' : '—'}</td>
         <td class="num">${esc(it.quantity)}</td>
         <td class="num">${fmtMoney(it.unit_price)}${it.pricing_unit === 'M2' ? '/m²' : ''}</td>
@@ -910,21 +918,33 @@
       <div class="form-grid" style="margin-bottom:1.2rem;">
         <a href="#/orcamentos/${quote.id}/imprimir" class="btn btn-ghost btn-small" style="text-decoration:none;">Imprimir</a>
         <a href="#/orcamentos/${quote.id}/compras" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de compras</a>
+        <a href="#/orcamentos/${quote.id}/corte" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de corte</a>
         <a href="#/orcamentos/${quote.id}/tempera" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de têmpera</a>
+        <a href="#/orcamentos/${quote.id}/fabricacao" class="btn btn-small" style="text-decoration:none;">Enviar para fabricação</a>
         <button class="btn btn-small" id="btn-criar-pedido-tempera">Criar pedido de têmpera</button>
       </div>
 
       <div class="section-title">Itens do orçamento (${items.length})</div>
       <div class="tablewrap">
         <table>
-          <thead><tr><th>Descrição</th><th>M²</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="5" style="color:var(--text-muted)">Sem itens ainda.</td></tr>'}</tbody>
-          <tfoot><tr><td colspan="4" style="text-align:right;font-weight:600;">Total</td><td class="num" style="font-weight:600;">${fmtMoney(total)}</td></tr></tfoot>
+          <thead><tr><th></th><th>Descrição</th><th>M²</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="color:var(--text-muted)">Sem itens ainda.</td></tr>'}</tbody>
+          <tfoot><tr><td colspan="5" style="text-align:right;font-weight:600;">Total</td><td class="num" style="font-weight:600;">${fmtMoney(total)}</td></tr></tfoot>
         </table>
       </div>
 
       <div class="form-box" style="margin-top:1.2rem;">
         <form id="quote-item-form">
+          <input type="hidden" id="qi-typology" value="" />
+          <div class="field" style="margin-bottom:0.7rem;">
+            <label>Tipologia (opcional)</label>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+              <button type="button" class="btn btn-ghost btn-small" id="btn-escolher-tipologia">Escolher tipologia</button>
+              <span class="sub" id="qi-typology-label">Nenhuma selecionada</span>
+              <button type="button" class="btn btn-ghost btn-small" id="btn-limpar-tipologia" style="display:none;">Limpar</button>
+            </div>
+            <div id="qi-typology-picker" class="card-grid" style="display:none;margin-top:0.6rem;max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:0.6rem;"></div>
+          </div>
           <div class="form-grid" style="margin-bottom:0.7rem;">
             <div class="field" style="flex-basis:220px;"><label for="qi-desc">Descrição *</label><input id="qi-desc" type="text" required /></div>
             <div class="field"><label for="qi-formula">Fórmula (opcional)</label>
@@ -994,19 +1014,66 @@
     });
 
     const formulaByVersionId = Object.fromEntries(formulas.filter((f) => f.current_version_id).map((f) => [String(f.current_version_id), f]));
-    const drawingByTypology = {};
-    (drawings || []).forEach((d) => { drawingByTypology[String(d.subject_id)] = d; });
 
     function updateDrawingPreview() {
       const box = document.getElementById('qi-drawing-preview');
+      const typologyId = document.getElementById('qi-typology').value;
       const formula = formulaByVersionId[document.getElementById('qi-formula').value];
-      const drawing = formula && formula.typology_id ? drawingByTypology[String(formula.typology_id)] : null;
+      const effectiveTypologyId = typologyId || (formula ? String(formula.typology_id || '') : '');
+      const typ = effectiveTypologyId ? typologyById[effectiveTypologyId] : null;
+      const drawing = effectiveTypologyId ? drawingByTypology[effectiveTypologyId] : null;
       box.innerHTML = drawing
-        ? `<div class="sub" style="margin-bottom:0.4rem;">Desenho técnico da tipologia "${esc(formula.typology || '')}":</div>
+        ? `<div class="sub" style="margin-bottom:0.4rem;">Desenho técnico da tipologia "${esc(typ ? typ.name : '')}":</div>
            <img src="/${esc(drawing.file_path)}" alt="" style="max-width:280px;border-radius:6px;border:1px solid var(--border);margin-bottom:0.7rem;" />`
         : '';
     }
+
+    function setSelectedTypology(typologyId) {
+      document.getElementById('qi-typology').value = typologyId || '';
+      const typ = typologyId ? typologyById[String(typologyId)] : null;
+      document.getElementById('qi-typology-label').textContent = typ ? typ.name : 'Nenhuma selecionada';
+      document.getElementById('btn-limpar-tipologia').style.display = typ ? '' : 'none';
+
+      const formulaSelect = document.getElementById('qi-formula');
+      const relatedFormulas = typologyId ? formulas.filter((f) => f.current_version_id && String(f.typology_id) === String(typologyId)) : formulas.filter((f) => f.current_version_id);
+      const currentValue = formulaSelect.value;
+      formulaSelect.innerHTML = `<option value="">—</option>${optionsFrom(relatedFormulas, 'current_version_id', 'name')}`;
+      if (relatedFormulas.some((f) => String(f.current_version_id) === currentValue)) {
+        formulaSelect.value = currentValue;
+      }
+      if (typologyId && relatedFormulas.length === 0) {
+        document.getElementById('qi-typology-label').textContent += ' (sem fórmula de corte — preencha m²/preço direto)';
+      }
+      updateDrawingPreview();
+    }
+
     document.getElementById('qi-formula').addEventListener('change', updateDrawingPreview);
+
+    document.getElementById('btn-escolher-tipologia').addEventListener('click', () => {
+      const picker = document.getElementById('qi-typology-picker');
+      if (picker.style.display !== 'none') {
+        picker.style.display = 'none';
+        return;
+      }
+      picker.innerHTML = typologies.map((t) => {
+        const d = drawingByTypology[String(t.id)];
+        return `
+          <div class="card" style="cursor:pointer;padding:0.5rem;" data-typology-id="${t.id}">
+            ${d ? `<img src="/${esc(d.file_path)}" alt="" style="width:100%;height:110px;object-fit:cover;object-position:top;border-radius:4px;border:1px solid var(--border);margin-bottom:0.3rem;" loading="lazy" />` : '<div class="state" style="padding:1rem 0;">sem desenho</div>'}
+            <div style="font-size:0.8rem;font-weight:600;">${esc(t.name)}</div>
+          </div>
+        `;
+      }).join('');
+      picker.style.display = 'grid';
+      picker.querySelectorAll('[data-typology-id]').forEach((card) => {
+        card.addEventListener('click', () => {
+          setSelectedTypology(card.dataset.typologyId);
+          picker.style.display = 'none';
+        });
+      });
+    });
+
+    document.getElementById('btn-limpar-tipologia').addEventListener('click', () => setSelectedTypology(null));
 
     document.getElementById('quote-item-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
@@ -1038,6 +1105,7 @@
           quote_id: quote.id,
           description: document.getElementById('qi-desc').value,
           formula_version_id: document.getElementById('qi-formula').value || null,
+          typology_id: document.getElementById('qi-typology').value || null,
           glass_type_id: document.getElementById('qi-glass').value || null,
           pricing_unit: pricingUnit,
           width_mm: width,
@@ -1151,6 +1219,135 @@
     `;
   }
 
+  function cuttingReportTableHtml(report) {
+    if (report.length === 0) {
+      return '<div class="state">Nenhum item com fórmula e medida preenchidas.</div>';
+    }
+    return report.map((profile) => {
+      const cutRows = profile.cuts.map((c) => `
+        <tr>
+          <td class="num mono">${fmtNum(c.length_mm, 1)} mm</td>
+          <td class="wrap">${esc(c.component_role)}</td>
+          <td class="num">${esc(c.quantity)}</td>
+        </tr>
+      `).join('');
+      return `
+        <div class="section-title" style="margin-top:1.2rem;">
+          ${esc(profile.profile_code || '—')} — ${esc(profile.profile_name || '')}
+          ${profile.estimativa_formula_nao_liberada ? '<span class="chip warn">estimativa (fórmula não liberada)</span>' : '<span class="chip ok">fórmula liberada</span>'}
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Comprimento</th><th>Peça</th><th>Qtd.</th></tr></thead>
+            <tbody>${cutRows}</tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function viewOrcamentoCorte(id) {
+    setLoading('relatório de corte');
+    try {
+      const report = await api(`/orcamentos/${id}/relatorio-corte`);
+      renderOrcamentoCorte(id, report);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentoCorte(id, report) {
+    app.innerHTML = `
+      <p><a href="#/orcamentos/${id}" class="btn-ghost">&larr; Voltar para o orçamento</a></p>
+      <div class="page-head">
+        <h1>Relatório de corte — Orçamento #${id}</h1>
+        <p>Peças individuais por perfil e comprimento (não somadas em metros) — pronto pra quem corta. Itens
+        marcados como estimativa usam fórmula ainda não liberada para produção — confira antes de cortar.</p>
+      </div>
+      ${cuttingReportTableHtml(report)}
+    `;
+  }
+
+  async function viewOrcamentoFabricacao(id) {
+    setLoading('ficha de fabricação');
+    try {
+      const [quote, cutting, purchase, tempering] = await Promise.all([
+        api(`/orcamentos/${id}`),
+        api(`/orcamentos/${id}/relatorio-corte`),
+        api(`/orcamentos/${id}/relatorio-compras`),
+        api(`/orcamentos/${id}/relatorio-tempera`),
+      ]);
+      const project = await api(`/projetos/${quote.project_id}`).catch(() => null);
+      const customer = project ? await api(`/clientes/${project.customer_id}`).catch(() => null) : null;
+      renderOrcamentoFabricacao(quote, project, customer, cutting, purchase, tempering);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentoFabricacao(quote, project, customer, cutting, purchase, tempering) {
+    const glassRows = purchase.glass.map((g) => `
+      <tr>
+        <td class="wrap">${esc(g.glass_type || '—')}</td>
+        <td>${g.thickness_mm ? fmtNum(g.thickness_mm, 1) + ' mm' : '—'}</td>
+        <td class="num">${fmtNum(g.total_area_m2, 2)} m²</td>
+      </tr>
+    `).join('');
+    const accessoryRows = purchase.accessories.map((a) => `
+      <tr><td class="wrap">${esc(a.description)}</td><td class="num">${fmtNum(a.total_quantity, 2)}</td></tr>
+    `).join('');
+    const temperingRows = tempering.map((p) => `
+      <tr>
+        <td class="wrap">${esc(p.description)}</td>
+        <td>${esc(p.glass_type)}</td>
+        <td>${p.thickness_mm ? fmtNum(p.thickness_mm, 1) + ' mm' : '—'}</td>
+        <td class="num">${fmtNum(p.width_mm, 0)} x ${fmtNum(p.height_mm, 0)} mm</td>
+        <td class="num">${esc(p.quantity)}</td>
+      </tr>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="no-print" style="margin-bottom:1rem;display:flex;gap:0.6rem;">
+        <a href="#/orcamentos/${quote.id}" class="btn-ghost">&larr; Voltar</a>
+        <button class="btn" id="btn-imprimir-fabricacao">Imprimir</button>
+      </div>
+      <div class="print-sheet">
+        <h1>Ficha de fabricação — Orçamento #${quote.id}</h1>
+        <p><strong>Cliente:</strong> ${esc(customer ? customer.name : '—')}</p>
+        <p><strong>Obra:</strong> ${esc(project ? project.name : '—')}${project && project.address ? ' — ' + esc(project.address) : ''}</p>
+        <p><strong>Data:</strong> ${esc((quote.created_at || '').slice(0, 10))}</p>
+
+        <h2>1. Corte (perfis)</h2>
+        ${cuttingReportTableHtml(cutting)}
+
+        <h2 style="margin-top:1.5rem;">2. Vidro</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Tipo</th><th>Espessura</th><th>Área total</th></tr></thead>
+            <tbody>${glassRows || '<tr><td colspan="3" style="color:var(--text-muted)">Nenhum vidro neste orçamento.</td></tr>'}</tbody>
+          </table>
+        </div>
+
+        <h2 style="margin-top:1.5rem;">3. Acessórios</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Descrição</th><th>Qtd.</th></tr></thead>
+            <tbody>${accessoryRows || '<tr><td colspan="2" style="color:var(--text-muted)">Nenhum acessório neste orçamento.</td></tr>'}</tbody>
+          </table>
+        </div>
+
+        <h2 style="margin-top:1.5rem;">4. Têmpera</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Item</th><th>Vidro</th><th>Espessura</th><th>Medida</th><th>Qtd.</th></tr></thead>
+            <tbody>${temperingRows || '<tr><td colspan="5" style="color:var(--text-muted)">Nenhuma peça de vidro temperado neste orçamento.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-imprimir-fabricacao').addEventListener('click', () => window.print());
+  }
+
   async function viewOrcamentoTempera(id) {
     setLoading('relatório de têmpera');
     try {
@@ -1191,20 +1388,47 @@
   async function viewOrcamentoImprimir(id) {
     setLoading('orçamento para impressão');
     try {
-      const [quote, items] = await Promise.all([
+      const [quote, items, drawings, typologies, glassTypes] = await Promise.all([
         api(`/orcamentos/${id}`),
         api(`/orcamentos-itens?quote_id=${id}`),
+        api('/desenhos-tecnicos?subject_type=TYPOLOGY'),
+        api('/tipologias'),
+        api('/vidros'),
       ]);
       const project = await api(`/projetos/${quote.project_id}`).catch(() => null);
       const customer = project ? await api(`/clientes/${project.customer_id}`).catch(() => null) : null;
-      renderOrcamentoImprimir(quote, items, project, customer);
+      renderOrcamentoImprimir(quote, items, project, customer, drawings, typologies, glassTypes);
     } catch (err) {
       setError(err);
     }
   }
 
-  function renderOrcamentoImprimir(quote, items, project, customer) {
-    const rows = items.map((it) => {
+  function renderOrcamentoImprimir(quote, items, project, customer, drawings, typologies, glassTypes) {
+    const drawingByTypology = {};
+    (drawings || []).forEach((d) => { drawingByTypology[String(d.subject_id)] = d; });
+    const typologyById = Object.fromEntries(typologies.map((t) => [String(t.id), t]));
+    const glassById = Object.fromEntries(glassTypes.map((g) => [String(g.id), g]));
+
+    const itemCards = items.map((it) => {
+      const area = lineAreaM2(it);
+      const typ = it.typology_id ? typologyById[String(it.typology_id)] : null;
+      const drawing = it.typology_id ? drawingByTypology[String(it.typology_id)] : null;
+      const glass = it.glass_type_id ? glassById[String(it.glass_type_id)] : null;
+      return `
+      <div class="print-item-card">
+        ${drawing ? `<div class="print-item-image"><img src="/${esc(drawing.file_path)}" alt="" /></div>` : ''}
+        <div class="print-item-details">
+          <h3>${esc(it.description)}</h3>
+          ${typ ? `<div class="row"><span>Tipologia</span><span>${esc(typ.name)}</span></div>` : ''}
+          <div class="row"><span>Metragem</span><span>${area !== null ? fmtNum(area, 2) + ' m²' : '—'}</span></div>
+          ${glass ? `<div class="row"><span>Vidro</span><span>${esc(glass.name)}${glass.thickness_mm ? ' — ' + fmtNum(glass.thickness_mm, 1) + ' mm' : ''}</span></div>` : ''}
+          <div class="row"><span>Quantidade</span><span>${esc(it.quantity)}</span></div>
+          <div class="row"><span>Valor</span><span>${fmtMoney(it.total_price)}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const summaryRows = items.map((it) => {
       const area = lineAreaM2(it);
       return `
       <tr>
@@ -1226,9 +1450,13 @@
         <p><strong>Cliente:</strong> ${esc(customer ? customer.name : '—')}</p>
         <p><strong>Obra:</strong> ${esc(project ? project.name : '—')}${project && project.address ? ' — ' + esc(project.address) : ''}</p>
         <p><strong>Data:</strong> ${esc((quote.created_at || '').slice(0, 10))}</p>
+
+        ${itemCards}
+
+        <h2 style="margin-top:1.5rem;">Resumo</h2>
         <table>
           <thead><tr><th>Descrição</th><th>Metragem</th><th>Qtd.</th><th>Valor</th></tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${summaryRows}</tbody>
           <tfoot><tr><td colspan="3" style="text-align:right;font-weight:600;">Total</td><td class="num" style="font-weight:600;">${fmtMoney(total)}</td></tr></tfoot>
         </table>
       </div>
@@ -2234,6 +2462,14 @@
     if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'tempera') {
       setActiveNav('orcamentos');
       return viewOrcamentoTempera(segments[1]);
+    }
+    if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'corte') {
+      setActiveNav('orcamentos');
+      return viewOrcamentoCorte(segments[1]);
+    }
+    if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'fabricacao') {
+      setActiveNav('orcamentos');
+      return viewOrcamentoFabricacao(segments[1]);
     }
     if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'imprimir') {
       setActiveNav('orcamentos');

@@ -62,6 +62,49 @@ final class QuoteReportService
         ];
     }
 
+    /**
+     * Relatório de corte: peças individuais (não somadas em metros), agrupadas
+     * por perfil e comprimento -- pra quem corta saber exatamente "N peças de
+     * X mm", não só o total de metros a comprar (isso já é o purchaseReport).
+     * Mesma regra de estimativa do purchaseReport: usa FormulaCalculationService
+     * em modo estimativa (requireReleased=false) e sinaliza quando a fórmula
+     * de origem ainda não está liberada para produção.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function cuttingReport(int $quoteId): array
+    {
+        $items = $this->quoteItems($quoteId);
+        $cutsByProfile = [];
+
+        foreach ($items as $item) {
+            if ($item['formula_version_id'] === null) {
+                continue;
+            }
+            $width = $this->maxDimension($item['width_mm'], $item['width_mm_2']);
+            $height = $this->maxDimension($item['height_mm'], $item['height_mm_2']);
+            if ($width === null || $height === null) {
+                continue;
+            }
+            $this->accumulateCuts($cutsByProfile, (int) $item['formula_version_id'], $width, $height, (float) $item['quantity'], $item['description']);
+        }
+
+        $result = [];
+        foreach ($cutsByProfile as $profileId => $profile) {
+            usort($profile['cuts'], static fn ($a, $b) => $b['length_mm'] <=> $a['length_mm']);
+            $result[] = [
+                'profile_id' => $profileId,
+                'profile_code' => $profile['profile_code'],
+                'profile_name' => $profile['profile_name'],
+                'estimativa_formula_nao_liberada' => $profile['estimativa_formula_nao_liberada'],
+                'cuts' => array_values($profile['cuts']),
+            ];
+        }
+        usort($result, static fn ($a, $b) => strcmp((string) $a['profile_code'], (string) $b['profile_code']));
+
+        return $result;
+    }
+
     /** @return list<array<string, mixed>> */
     public function temperingReport(int $quoteId): array
     {
@@ -150,6 +193,58 @@ final class QuoteReportService
                 $totals[$profileId]['estimativa_formula_nao_liberada'] = true;
             }
             $totals[$profileId]['itens'][] = $itemDescription;
+        }
+    }
+
+    /** @param array<int, array<string, mixed>> $cutsByProfile */
+    private function accumulateCuts(array &$cutsByProfile, int $formulaVersionId, float $width, float $height, float $quantity, string $itemDescription): void
+    {
+        $versionStmt = $this->db->prepare('SELECT status_code FROM formula_versions WHERE id = ?');
+        $versionStmt->execute([$formulaVersionId]);
+        $versionStatus = $versionStmt->fetchColumn();
+
+        $result = $this->calculationService->calculate($formulaVersionId, [
+            'L' => $width, 'A' => $height, 'N' => $quantity, 'E' => 0, 'P' => 0,
+        ], false);
+
+        $componentsStmt = $this->db->prepare('SELECT profile_id, component_role, quantity FROM formula_components WHERE formula_version_id = ? ORDER BY id');
+        $componentsStmt->execute([$formulaVersionId]);
+        $componentRows = $componentsStmt->fetchAll();
+
+        foreach ($result['components'] as $i => $computed) {
+            if ($computed['result_mm'] === null || !isset($componentRows[$i]['profile_id']) || $componentRows[$i]['profile_id'] === null) {
+                continue;
+            }
+            $profileId = (int) $componentRows[$i]['profile_id'];
+            $lengthMm = round((float) $computed['result_mm'], 1);
+            $pieceQuantity = (int) $componentRows[$i]['quantity'] * (int) $quantity;
+
+            if (!isset($cutsByProfile[$profileId])) {
+                $profileStmt = $this->db->prepare('SELECT code, name FROM profiles WHERE id = ?');
+                $profileStmt->execute([$profileId]);
+                $profile = $profileStmt->fetch();
+                $cutsByProfile[$profileId] = [
+                    'profile_code' => $profile['code'] ?? null,
+                    'profile_name' => $profile['name'] ?? null,
+                    'estimativa_formula_nao_liberada' => false,
+                    'cuts' => [],
+                ];
+            }
+            if ($versionStatus !== 'LIBERADO_PRODUCAO') {
+                $cutsByProfile[$profileId]['estimativa_formula_nao_liberada'] = true;
+            }
+
+            $cutKey = $lengthMm . '|' . $componentRows[$i]['component_role'];
+            if (!isset($cutsByProfile[$profileId]['cuts'][$cutKey])) {
+                $cutsByProfile[$profileId]['cuts'][$cutKey] = [
+                    'length_mm' => $lengthMm,
+                    'component_role' => $componentRows[$i]['component_role'],
+                    'quantity' => 0,
+                    'itens' => [],
+                ];
+            }
+            $cutsByProfile[$profileId]['cuts'][$cutKey]['quantity'] += $pieceQuantity;
+            $cutsByProfile[$profileId]['cuts'][$cutKey]['itens'][] = $itemDescription;
         }
     }
 
