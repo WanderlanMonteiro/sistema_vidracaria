@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sistema Vidraçaria — Catálogo Técnico</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#2f6f8f" />
+<link rel="icon" href="icon-512.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Vidraçaria" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#/" class="brand">
+        <span class="brand-logo"><img src="logo-full.png" alt="MD Vidros &amp; Esquadrias" /></span>
+      </a>
+      <nav class="topnav" id="topnav">
+        <a href="#/fabricantes" data-nav="fabricantes">Fabricantes</a>
+        <a href="#/perfis" data-nav="perfis">Perfis</a>
+        <a href="#/acessorios" data-nav="acessorios">Acessórios</a>
+        <a href="#/formulas" data-nav="formulas">Fórmulas</a>
+        <a href="#/tipologias" data-nav="tipologias">Tipologias</a>
+        <a href="#/clientes" data-nav="clientes">Clientes</a>
+        <a href="#/obras" data-nav="obras">Obras</a>
+        <a href="#/orcamentos" data-nav="orcamentos">Orçamentos</a>
+        <a href="#/financeiro" data-nav="financeiro">Financeiro</a>
+        <a href="#/compras" data-nav="compras">Compras</a>
+        <a href="#/materiais" data-nav="materiais">Materiais</a>
+        <a href="#/tempera" data-nav="tempera">Têmpera</a>
+      </nav>
+      <div class="topbar-user" id="topbar-user" hidden>
+        <span id="user-name"></span>
+        <a href="#/usuarios">Usuários</a>
+        <a href="#/senha">Trocar senha</a>
+        <a href="#" id="logout-link">Sair</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="app" class="page" aria-live="polite"></main>
+
+  <footer class="footer">
+    <span>Catálogo técnico — dados extraídos de catálogo com fonte e página citadas</span>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

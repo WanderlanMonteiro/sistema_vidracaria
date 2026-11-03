@@ -1,0 +1,397 @@
+# Fontes Técnicas
+
+Registro de todo documento usado como fonte de dados, seu estado de extração e o
+que falta. IDs referem-se à tabela `technical_sources`.
+
+| ID | Fonte | Fabricante | Páginas | Estado |
+|---|---|---|---|---|
+| 1 | Livro 5 — Serralheria Alumínios | — | 28 | ✅ Extraído por completo (manual, nesta sessão) |
+| 2 | Catálogo Técnico Ecoline 2.5 / SGT-GTS (5ª ed., jun/2023) | Perfil Alumínio do Brasil | 41 | ✅ Extraído — 163 perfis, ver `database/seeds/0006_ecoline25_profiles.sql` |
+| 3 | Catálogo Técnico UNNION (4ª ed., jun/2023) | Perfil Alumínio do Brasil | 32 | ✅ Extraído — 135 perfis, ver `database/seeds/0007_unnion_profiles.sql` |
+| 4 | Catálogo de Perfis Tec-Vidro "TEC-SUP" | Tec-Vidro | 10 | ✅ Extraído na 2ª tentativa — 41 perfis, ver `database/seeds/0008_suprema_profiles.sql`. **Achado importante**: a palavra "Suprema" não aparece em nenhuma página do PDF-fonte; o catálogo se identifica só como "TEC-SUP". A linha ficou com `status_code = NECESSITA_CONFERENCIA` até confirmar o nome comercial real com o fabricante. Sem coluna de aplicação nem segmentação "revenda"/"fachada cortina" nesta fonte. |
+| 5-7 | Gold III — Perfis e Acessórios (3 partes) | Alcoa / Alumínio & Cia | 49+37+7 | ✅ Extraído — 114 perfis + 94 acessórios + 22 combinações de compatibilidade vidro/guarnição (p.104), ver `database/seeds/0009_goldiii_profiles_accessories.sql`. 93 imagens de página foram exportadas e depois removidas do repositório em
+2026-08-16 (pedido do usuário, ver seção de pendências abaixo) — os dados
+extraídos continuam no banco com página citada. **Achados importantes**: os códigos de exemplo do pedido original (fechos FEC1028/1029, FEC1036/1038/1040/1042, cotas "A"/"B" de usinagem) **não existem** em nenhum dos 3 arquivos — não foram inventados. O exemplo de compatibilidade citado no pedido ("LG015/LG050 vidro 6mm → GUA256/GUA304") também não bate exatamente com o catálogo; a tabela real está na fonte. O catálogo grafa o mesmo perfil ora como "LG-0XX" ora como "LG-XX" em páginas diferentes (ex: LG-018/LG-0018) — tratado com casamento tolerante de código, documentado em cada linha afetada. |
+| 8 | "Esquadrias de Alumínio: como especificar, comprar e conservar" (Hydro, 2004) | Hydro Building Systems | 52 | ✅ Extraído (normas NBR, checklist de manutenção, tabela de anodização); ainda **não convertido em seed SQL** — conteúdo só existe no histórico da sessão/relatório do agente. |
+| 9 | "Tipos de Esquadria de Alumínio" (CEHOP 1.10.02) | — | 8 | ✅ Extraído (tabela completa de tipos de janela com vantagens/desvantagens); ainda **não convertido em seed SQL**. |
+| 10 | Planilha interna de cálculo de corte (`PlanilhaEsquadrias101.xlsx`) | várias (ver abaixo) | 76 abas de tipologia | ✅ Processada — **primeira fonte real de fórmulas de corte** do projeto. Ver seção dedicada abaixo. |
+| 11 | Catálogo consolidado — índice extraído de 4 catálogos (Catálogo AL, Catálogo Alcoa, Catálogo geral Alutec, Catálogo promocional Aluminconte), enviado como `detalhes_tecnicos_catalogos.pdf` (42 pág.) + `catalogo_consolidado.xlsx` | Alcoa (parcial) / Alutec / Aluminconte | 42 (PDF) + 434 linhas (xlsx) | ⚠️ **Não são os catálogos originais** — é um índice já resumido, sem os 4 PDFs-fonte. A maior parte das ~430 entradas é só nome de seção + página, sem dado técnico (ex: "LINHA III GOLD \| Página: 205" sem tabela). Mas contém um "Índice de Perfis" real do Catálogo Alcoa (código + peso kg/m + página, ~912 códigos distintos) — usado para **confirmar o fabricante da linha Módulo Prático/Linha 30** (ver abaixo). Ver `database/seeds/0014_alcoa_modulo_pratico_confirmation.sql`. |
+| 12 | Catálogo AL Indústria (`CatalogoAL.pdf`) | AL Indústria | 44 | ✅ Extraído por completo — **este arquivo não é o Catálogo Alcoa**, apesar do nome parecido/pedido do usuário para "usar o catálogo Alcoa". É o catálogo da **AL Indústria** (Rua Juraci Aletto 224, Mauá-SP, fundada 2003), fabricante de ferragens para vidro temperado. Total: **149 acessórios** (84 ferragens Linha Capa/Tradicional + 40 puxadores + 25 itens do Kit Sacada sem Rolamento, pág. 36) e **34 perfis de seção** dos kits de alumínio (Kit Sacada, Kit Pia, Kit Box, Kit Box Reto, Kit Engenharia 8/10mm — 29 com dimensão catalogada, 5 sem dimensão numérica legível na página, marcados `PENDENTE`). Ver `database/seeds/0016_al_industria.sql` e `0017_al_industria_complemento.sql` (complemento pedido pelo usuário: acessórios do Kit Sacada que tinham ficado de fora da primeira leva). Os descontos de vão citados nos kits (ex: "Kit Pia: portas = vão − 40mm") ficaram documentados na descrição da `product_lines.id=10`, não viraram `formula_deductions` porque não há tipologia/fórmula cadastrada para eles ainda. |
+
+## Planilha interna de cálculo de corte — a fonte mais importante até agora
+
+Diferente dos catálogos de fabricante (que só trazem peso/dimensão de perfil
+isolado), esta planilha é a **ferramenta de cálculo que o usuário já usa na
+operação real** — 80 abas, das quais 76 têm uma tabela "LISTA DE PERFIS" com
+fórmulas de Excel relacionando o comprimento de corte de cada perfil à largura
+(L) e altura (A) do vão.
+
+**Como foi processada** (script `gen_seed_planilha.py`, ver histórico da sessão):
+1. Cada aba tem células de entrada (`LARGURA`→L, `ALTURA`→A, `QUANT.`→N) e uma
+   tabela de corte (código do perfil, descrição, fórmula de `TAMANHO`).
+2. Cada fórmula de Excel foi resolvida **recursivamente**, substituindo
+   referências de célula até sobrar só L/A/N e números literais — nunca se
+   inventou ou aproximou um valor; fórmulas que dependiam de `IF`/`SUM`/
+   `ROUNDUP` (que são cálculo de compra de barra, não de corte) foram marcadas
+   como não resolvidas e não entraram como fórmula de corte.
+3. O código de cada perfil foi conferido contra o banco já carregado, usando
+   códigos **distintos** por aba (a primeira versão do script contava um
+   perfil repetido duas vezes na mesma aba como duas provas de pertencer a uma
+   linha, o que causou classificações erradas — corrigido, ver commit
+   `1acac45`) — **48 das 76 abas bateram diretamente** com perfis já
+   catalogados (Suprema 30, UNNION 6, Gold III 6, Ecoline 2.5 6), então a
+   fórmula ficou vinculada ao `profiles.id` real. Isso também revelou 78
+   perfis reais adicionais dessas mesmas linhas que não estavam nas páginas
+   dos catálogos PDF já processados (+2 Ecoline 2.5, +9 Gold III, +67
+   Suprema) — cadastrados com peso/dimensão `PENDENTE` já que a planilha só
+   traz o comprimento calculado, não o peso do perfil.
+4. As outras 28 abas usam códigos de **3 linhas que não existiam em nenhum
+   catálogo já processado**: "Módulo Prático / Linha 30" (104 perfis MP-xxx),
+   "Linha Portão" (8 perfis PC/PU/LB-xxx) e "Linha Moveleira" (32 perfis —
+   armários/gaveteiros com porta de giro em alumínio, linha citada na
+   contracapa do catálogo Ecoline 2.5 mas nunca detalhada em nenhum PDF
+   recebido). Essas 3 linhas foram cadastradas com fabricante
+   `NECESSITA_CONFERENCIA` porque a planilha não diz quem fabrica os perfis
+   MP/Portão — só o próprio código. Os 144 perfis novos dessas 3 linhas
+   ficaram com peso/dimensão `PENDENTE`.
+
+   **Atualização (2026-08-16)**: o fabricante da linha "Módulo Prático / Linha
+   30" foi **confirmado como Alcoa** a partir do catálogo consolidado (fonte
+   11 acima). Dos 69 códigos distintos da linha, 52 (75%) batem código+peso+
+   página exatamente contra o "Índice de Perfis" do Catálogo Alcoa, e a seção
+   "Módulo Prático II" desse índice começa na página 115 — a mesma faixa
+   (115–128) onde aparecem os códigos MP-xxx da nossa planilha. Mesmo limiar
+   de decisão já usado para classificar as 76 abas (n≥2 códigos distintos E
+   ratio≥0.25), aqui superado com folga. `product_lines.id=7` passou para
+   `manufacturer_id=2` (Alcoa) e `status_code='CATALOGADO'`; 32 perfis
+   (MP-/MN-/BG-/ME-, sem conflito com nenhuma outra fonte) ganharam peso real
+   citando página. Isso **não libera nenhuma fórmula para produção** — a
+   liberação continua exigindo revisão de dedução + protótipo + aprovação,
+   fórmula por fórmula, como sempre.
+
+   A mesma verificação para "Linha Portão" deu resultado fraco (2 de 8
+   códigos batidos — `PU-639` e `LB-050` —, exatamente no limiar de 25%, e
+   `PU-639` aparece no índice Alcoa com duas páginas diferentes para o mesmo
+   peso, um conflito interno da própria fonte).
+
+   **Atualização (2026-08-16, segunda rodada)**: por instrução explícita do
+   usuário ("linha portão eu quero que seja concluída, não precisa pesquisar
+   mais, use as referências que tem"), a classificação de "Linha Portão" como
+   Alcoa foi **aceita como definitiva** com a evidência já levantada, sem
+   nova pesquisa — uma decisão humana deliberada de encerrar o assunto, não
+   uma nova evidência técnica. Ficou `status_code = 'CATALOGADO'`, não
+   `VALIDADO`; os 6 perfis sem correspondência no índice Alcoa (`PC-027`,
+   `25-517`, `LB-072`, `TRD-1"`, `TRG-2X1`, `GS-034`) continuam com peso
+   `PENDENTE`, porque decidir não pesquisar mais não cria um dado que nenhuma
+   fonte já extraída contém.
+
+   Achado importante que **não** foi usado para alterar dado nenhum: o mesmo
+   índice Alcoa também cita uma seção "Linha Suprema" (págs. 157–202) com
+   vários códigos SU-xxx que também aparecem na "Módulo Prático/Linha 30" —
+   e os pesos são **próximos mas não idênticos** aos já cadastrados para a
+   linha Suprema (fonte 4, catálogo TEC-SUP/Tec-Vidro): ex. `SU-001` = 0,714
+   kg/m no TEC-SUP vs 0,762 kg/m no índice Alcoa; `SU-010` = 1,008 vs 1,022;
+   `SU-012` = 0,547 vs 0,539. Próximo demais para ser coincidência, longe
+   demais para ser o mesmo número — **isso é um conflito entre fontes, não
+   uma confirmação**, registrado em "Conflitos encontrados nas fontes" em
+   `docs/GOVERNANCA_DE_DADOS.md`. Nenhum peso da linha Suprema foi alterado
+   por causa disso.
+5. Uma aba (`04 GAVETAS P02`) tinha um layout diferente e não foi processada.
+
+**Resultado**: 77 fórmulas reais (`formulas`/`formula_versions`), 996
+componentes de corte (`formula_components`), todas **verificadas batendo
+exatamente com os valores reais calculados na própria planilha** (testado via
+API contra fórmulas de UNNION, Gold III e Suprema — ex: "Janela de Correr 2
+Folhas UNNION" com L=1393/A=1090 produz os mesmos 1368/1368/1090/1040/1040/
+640mm que a planilha calcula).
+
+As constantes embutidas nas 996 expressões (tipo `-25`, `-50` antes do `/2`)
+**foram decompostas em 610 `formula_deductions`** (seed
+`0011_formula_deductions_from_planilha.sql`, inicialmente `status_code =
+'EXTRAIDO'`). **As 48 fórmulas das 4 linhas totalmente catalogadas foram
+revisadas e liberadas para produção** pelo responsável técnico (seeds `0012`
+e `0013`) — suas deduções viraram `VALIDADO` e cada uma ganhou protótipo/
+aprovação técnica registrados. Ver "Por que a liberação para produção não é
+feita a partir de uma instrução geral" em `docs/GOVERNANCA_DE_DADOS.md`.
+
+Das 28 fórmulas das 3 linhas novas (Módulo Prático/Linha 30, Linha Portão,
+Linha Moveleira), 27 continuam `CATALOGADO`/bloqueadas — não por dúvida sobre
+a fórmula em si, mas porque usam ao menos um perfil cujo peso ainda não foi
+confirmado. **Uma exceção**: em 2026-08-16, por instrução explícita do
+usuário ("libera as fórmulas do Módulo Prático/Linha 30 que já tem peso
+confirmado"), foi liberada a fórmula **"JANELA DE CORRER 03 FOLHAS MP"**
+(`formulas.id = 33`) — a única das 11 fórmulas de Módulo Prático/Linha 30
+cujos 8 perfis componentes (`BG-202`, `MP-300`, `MP-302`, `MP-309`, `MP-321`,
+`MP-366`, `MP-368`, `MP-416`) já têm peso confirmado (seed
+`0014_alcoa_modulo_pratico_confirmation.sql`). Critério objetivo aplicado às
+11 fórmulas da linha, não uma seleção manual — ver
+`database/seeds/0018_release_modulo_pratico_com_peso.sql`.
+
+**Pendência específica (revisão de 2026-08-16)**: das 10 fórmulas ainda
+bloqueadas, três estão a **um único peso de perfil** de serem liberáveis pelo
+mesmo critério —
+
+| Fórmula | Falta peso de |
+|---|---|
+| PORTA DE CORRER 03 FOLHAS MP (`formulas.id=31`) | `MP-371` |
+| JANELA 04 FOLHAS MP (`formulas.id=34`) | `MP-358` |
+| JANELA 02F MÓDULO PRÁTICO (`formulas.id=35`) | `MP-358` |
+
+`MP-371` e `MP-358` não aparecem no índice de perfis do Catálogo Alcoa que já
+temos (o índice resumido do documento consolidado, não o catálogo completo)
+— não é lacuna de extração, é que essa fonte específica não cobre esses dois
+códigos. Se aparecer um catálogo Alcoa mais completo, ou qualquer outra fonte
+que cite peso para `MP-371`/`MP-358`, essas 3 fórmulas ficam liberáveis de
+imediato pelo mesmo critério objetivo já usado na `formulas.id=33`. As
+demais 7 fórmulas da linha (e as de Linha Portão/Linha Moveleira) têm 2 ou
+mais perfis pendentes cada, incluindo dezenas de códigos `SU-`/`VZC`/`VZP`
+nas duas fórmulas "integrada" — essas exigiriam uma fonte bem mais completa
+para fechar.
+
+## Pendências residuais do Gold III
+
+- **Dados estruturais (Jx/Jy/Wx/Wy)** das páginas impressas 19–36 (gráficos de
+  pressão de ensaio por tipologia: bandeira, peitoril, mão de amigo, central 4
+  folhas, montante maxim-ar) foram extraídos e documentados no relatório, mas
+  ainda **não carregados** em `structural_limits`/`pressure_limits` — exigem
+  decidir o `subject_type` correto (tipologia vs. combinação de perfis) antes de
+  modelar.
+- **Arquivo 3** (5d03514a, tipologias JC2F/PC2FPE/etc.) não tem dados tabulares
+  próprios, só nomes de tipologia — não gerou linhas em `typologies` para evitar
+  duplicar as 9 tipologias já cadastradas do Livro 5 sem uma correspondência clara.
+- **`technical_drawings`**: as 93 imagens de página exportadas do Gold III foram
+  **removidas do repositório em 2026-08-16** (pedido explícito do usuário) sem
+  terem sido associadas a `profiles.id`/`accessories.id`. Os dados extraídos das
+  páginas (código, peso, descrição) já estão no banco via
+  `0009_goldiii_profiles_accessories.sql` com página citada em cada linha — só a
+  imagem em si não existe mais. Se for necessário no futuro, as páginas podem ser
+  reexportadas dos PDFs originais (fontes 5-7) pela página citada em cada perfil.
+
+## Pendências abertas em 2026-08-17 (a pedido do usuário)
+
+- **Desenhos técnicos dos perfis (`technical_drawings`)**: usuário pediu para
+  reexportar dos PDFs originais (ainda disponíveis) as imagens de página e associar
+  a cada `profiles.id` pela `page_number` já cadastrada — mesma ideia das 93 imagens
+  do Gold III removidas em 2026-08-16, agora estendida a todos os catálogos com
+  página citada (Ecoline 2.5, UNNION, Gold III, Alcoa/Módulo Prático/Suprema).
+  Ainda **não iniciado nesta rodada** por volume de trabalho — é a próxima tarefa.
+- **Tipologias de vidro temperado com ferragem** (ex: kits de porta/box temperado
+  usando o catálogo de ferragens AL Indústria): **não existem** hoje em
+  `typologies` nem fórmula ligando kit+ferragem+vidro — só o catálogo de acessórios
+  (149 itens) e os perfis dos kits de alumínio da AL Indústria estão cadastrados.
+  Aguardando o usuário fornecer a lista de tipologias para cadastro (nenhuma foi
+  inventada).
+- **`glass_types` tem só 1 linha cadastrada** (a de referência do Asa Flex, ainda
+  `PENDENTE`) mais 1 criada manualmente via API em teste (`Temperado 8mm`,
+  `CATALOGADO`). Ao contrário de perfil/acessório, `glass_types` agora tem CRUD
+  aberto pela API (`/vidros`) porque é dado operacional simples (nome/espessura/
+  categoria), não uma especificação proprietária extraída de catálogo — o usuário
+  pode cadastrar os tipos de vidro que usa direto pela interface.
+- **Vínculo fórmula/tipologia → acessórios não existe** (nenhuma tabela liga
+  `formulas`/`typologies` a `accessories`). Por decisão do usuário, o relatório de
+  compras trata acessórios como lista avulsa por orçamento (`quote_accessories`),
+  não como algo derivado automaticamente da fórmula.
+
+## Import pendente: guias gerais Hydro + CEHOP
+
+O conteúdo já foi extraído (normas NBR citadas, checklist de manutenção Anexo I,
+tabela de tipos de janela com vantagens/desvantagens do CEHOP) mas ainda não foi
+transformado em linhas de `inspection_checklists`/`validation_records`/documentação
+de tipologia. Prioridade sugerida: usar a tabela CEHOP para enriquecer
+`typologies.notes` (vantagens/desvantagens por tipo) e o checklist Hydro como seed
+inicial de `inspection_checklists` para recebimento de perfil / inspeção de produto
+acabado.
+
+## Catálogo Super5 — Ferragens para Vidros Temperados (2026-08-18)
+
+Fonte: `CatalogoFerragensVidroSuper5.pdf`, 54 páginas (pág. 1 capa, pág. 2-53 itens,
+pág. 54 tabela de cores de acabamento). Extração feita por script
+(`scripts/generate_super5_seed.php`, gera `database/seeds/0020_super5_ferragens.sql`)
+a partir da transcrição página a página de todo o catálogo — não foi feita
+amostragem, as 52 páginas de itens foram lidas por completo.
+
+**Carregado:**
+- Fabricante `Super5` + `technical_sources`/`source_references` (uma por página).
+- **228 acessórios** (`accessories`), código+nome exatamente como impresso, categoria
+  classificada por palavra-chave (DOBRADICA/ROLDANA/FECHADURA/TRINCO/FECHO/PUXADOR/
+  MOLA/SUPORTE/GRAPA/CANTONEIRA/OUTRO — regra determinística, ver função `classify()`
+  no script). `status_code = CATALOGADO`, `origin_type = ENCONTRADO_DOCUMENTO`.
+- **228 linhas em `accessory_compatibilities`** (uma por acessório) com `notes` =
+  aplicação tal como impressa no catálogo — **todo item tem a aplicação registrada**,
+  como pedido. `typology_id` só é preenchido quando o nome cita literalmente
+  "correr", "basculante", "maxim-ar"/"maximar", "pivotante" ou "porta de giro" (as
+  únicas 5 categorias de `typologies` com correspondência inequívoca): **41 itens**
+  ficaram vinculados (21 Correr, 9 Basculante, 5 Maxim-Ar, 5 Pivotante, 1 Giro). Os
+  outros **187** ficaram com `typology_id NULL` — aplicação registrada,
+  mas sem tipologia formal porque ela não existe ainda no sistema (ver abaixo).
+- **228 imagens** (`technical_drawings`, `subject_type='ACCESSORY'`) — a página
+  inteira do catálogo (`public/uploads/catalogos/super5/pagina-NN.jpg`, renderizada
+  do PDF original a 150dpi/JPEG), já que o catálogo não tem uma imagem individual
+  recortada por item (cada página mostra 3-4 itens). Vários acessórios da mesma
+  página compartilham a mesma imagem — é o comportamento esperado, não duplicidade.
+- Nova tela **Acessórios** no frontend (lista com imagem, filtro por categoria).
+- Nova rota `GET /acessorios-compatibilidades`.
+
+**Não carregado / decisões explícitas:**
+- **Excluídos por não serem ferragem** (embalagem/armazenagem): Papel Crepado,
+  Filme Strech, Fita dupla face, Gaveta para armazenagem (não tinha código de
+  produto legível, só uma tabela de tamanhos).
+- Item de código **1587** aparece **duas vezes no catálogo original com o mesmo
+  código** (p.36: "Haste para Maxim-Ar" e "Conjunto acessório V/V para haste com 2
+  furos") — preservado como uma linha só, combinando os dois nomes, em vez de
+  inventar um código novo pra desdobrar.
+- `1607i`/`1607` (puxador de madeira, cor Imbuia/marfim), `1047`/`1047A` e outros
+  pares de variante sem texto distintivo além do código foram cadastrados como duas
+  linhas idênticas em nome (mudando só o código) — a diferença real entre eles
+  (ex: lado direito/esquerdo, dimensão) não está escrita no catálogo de forma
+  legível para esses casos específicos.
+
+**Pendência para o usuário confirmar — candidatos a tipologia nova:**
+Boa parte do catálogo é ferragem para aplicações de vidro temperado que **não têm
+tipologia cadastrada** (as 9 tipologias atuais são as de esquadria de alumínio do
+Livro 5). Candidatos que aparecem repetidamente nos 187 itens sem vínculo, pela
+contagem de palavra-chave no texto de aplicação:
+
+| Candidato a tipologia | Menções | Exemplos de código |
+|---|---|---|
+| Box (blindex) | 12 | 1114, 1115, 1125E, 1150S, 1350, 2021/2022 (Kit Millennium), 2024/2025 (Kit articulado), 1629/1630/1629TEK (puxador) |
+| Porta/painel granito-alvenaria-madeira (dobradiça/cantoneira "universal") | ~15 (várias linhas citam os três materiais juntos) | 1750, 1751, 1755, 1756D/E, 1760, 1761, 1762 |
+| Sacada/guarda-corpo | 2 | 1334, 1334TB (grapa para sacada) |
+| Porta sanfonada | 2 | 1332, 1403 |
+| Rack/móvel com porta de vidro | 3 | 1141, 1913, 1913P |
+| Vitrine | 1 | 1912 |
+| Espelho (não é bem uma "tipologia" de esquadria, é fixação de espelho) | ~3 | 2001, 2002, 2009 |
+
+Nenhuma dessas foi criada como tipologia nova — segue a mesma régua de sempre
+(nada inventado sem confirmação). Se o usuário quiser, pode cadastrar essas
+tipologias pela tela **Tipologias** (já tem editor de desenho) e depois eu volto
+nas 187 linhas de `accessory_compatibilities` pra preencher o `typology_id` que
+hoje está NULL.
+
+**Atualização (2026-08-19):** as tipologias Box (de canto/frontal/frontal de giro),
+Sacada (Kit Sacada, Guarda-corpo), Sanfonada (3 folhas e 6 peças) e Vitrine
+(Vitrine Fixa 3 Peças) **já existem agora**, cadastradas a partir da apostila
+técnica (ver seção abaixo).
+
+**Vínculo retroativo (`0022_super5_vinculo_tipologias_temperado.sql`):** as 187
+linhas pendentes foram conferidas **uma a uma** pelo texto de aplicação real do
+Super5 (não em lote por palavra-chave solta) — **22 receberam vínculo**, as
+outras **165 seguem sem vínculo** porque o texto não permite escolher uma
+tipologia específica sem inventar informação:
+
+| Vínculo feito | Tipologia | Motivo |
+|---|---|---|
+| 2021, 2022, 2024, 2025 (Kit Millennium/articulado) | Box Frontal | cita "box frontal" literalmente |
+| 1350 (suporte superior a 90°) | Box de Canto | ângulo de 90° = configuração de canto, não frontal/giro |
+| 1334, 1334TB (grapa para sacada) | Guarda-corpo / Sacada de Vidro | "grapa para sacada" = fixação de painel, igual à peça AF 75 da apostila p.29 |
+| 1315 (suporte com batedeira p/ união de 3 vidros) | Vitrine Fixa 3 Peças | "união de 3 vidros" bate com a montagem de 3 peças |
+| 1000 (engate p/ corrente em alvenaria) | Basculante (tipologia já existente do Livro 5) | mesma família dos itens 1003/1003A/1003CM já vinculados a essa tipologia |
+| 1750, 1751, 1755, 1756D, 1756E (dobradiça), 1760, 1761, 1762 (cantoneira), 1504A/1504AX/1504ATD/1504ATE (batedeira em alvenaria), 1531 (contra-fechadura) | Porta Pivotante Única (Vidro Temperado) | porta de vidro giratória fixada direto em madeira/alvenaria/granito, sem marco de alumínio — mesma família da instalação "com cantoneira" citada na tabela de folgas (apostila p.32); 1504-família/1531 são o par fechadura/batedeira do mesmo conjunto |
+
+**Deixado sem vínculo, por categoria (as 165 restantes):**
+- **"Para box" genérico** (dobradiça 1114/1115, roldana 1125E/1150S, puxador
+  1629/1629TEK/1630): não diz qual das 3 variantes (canto/frontal/giro) — forçar
+  uma escolha seria inventar especificidade que a fonte não tem.
+- **"Porta sanfonada" genérico** (1332, 1403) e **roldana p/ trilho 1030** (1150,
+  sem dizer "box"): trilho 1030 é usado nas duas variantes de sanfonada *e* na
+  porta de correr com mão amiga — ambíguo entre 3 tipologias.
+- **Fechadura para vitrine com porta** (1912 "fechadura morcego para vitrines"):
+  as duas tipologias de vitrine cadastradas são **fixas** (sem porta); uma
+  fechadura não se aplica a nenhuma delas — vínculo incorreto seria pior que
+  nenhum vínculo.
+- **Dobradiça pivotante genérica sem material** (1101, 1101M, 1102, 1102G, 1102M):
+  já estavam vinculadas à tipologia **Pivotante** (Livro 5, esquadria de
+  alumínio) desde a extração original do Super5 — mantido como estava, não
+  remapeado para a tipologia nova.
+- **Rack** (1141, 1913, 1913P) e **espelho** (2001, 2002, Convexo, Fixa espelho):
+  não têm tipologia cadastrada (rack não é uma das 21 tipologias novas; espelho
+  não é uma tipologia de esquadria).
+- **Genéricos de qualquer montagem** (parafuso, porca, escova, guarnição, mola,
+  batedeira/cantoneira sem material especificado, "conjunto deslizante" etc.):
+  usados em várias tipologias ao mesmo tempo, sem informação no catálogo para
+  escolher uma só.
+
+## Apostila Técnica para Vidros de Segurança (curso temperado) — (2026-08-19)
+
+Fonte: "Apostila Técnica para Vidros de Segurança", autoria
+`suportecnicojota@hotmail.com` ("Elaboração", conteúdo de um curso técnico de
+vidro temperado), 134 páginas. Enviada em **duas versões**: primeiro como um
+`.docx` convertido a partir de um PDF (zero imagens embutidas — a conversão
+descartou todos os desenhos/fotos, só sobrou texto/tabela), depois reenviada como
+os **dois PDFs originais** (`ApostilaTecnicadeVidrodeSeguranca_1.pdf`, 100 páginas,
+e `_2.pdf`, 34 páginas) com todos os desenhos técnicos e fotos. As 134 páginas
+foram lidas por completo nas duas versões antes de qualquer extração.
+
+**Carregado:**
+- `technical_sources` (`document_type = LIVRO_TECNICO`) + `source_references` (uma
+  por página/tipologia citada).
+- **21 tipologias novas** (`typologies`, categoria nova `VIDRO_TEMPERADO` — são
+  montagens de vidro temperado **sem marco de alumínio**, ferragem direto no
+  vidro, por isso não reaproveitam os nomes das 9 tipologias de esquadria já
+  cadastradas no Livro 5, que são um produto diferente): Box de Canto, Box
+  Frontal, Box Frontal de Giro, Kit Sacada, Spider (Estrutura Aranha), Fachada
+  Glazing, Guarda-corpo/Sacada de Vidro, Max-Ar Único, Basculantes Laterais e
+  Fixo Central, Janela 2 e 4 Folhas de Correr, Vitrine Fixa 3 Peças, Vitrine Fixa
+  com Tubo e Bandeira, Porta Pivotante Única, Porta Pivotante 2 Folhas e
+  Bandeira, Porta de Correr 2 Folhas com Tubo e Bandeira, Porta de Correr 4
+  Folhas, Porta de Correr 2 Folhas Atrás da Alvenaria, Porta Sanfonada 3 Folhas e
+  6 Peças (trilho 1030), Porta de Correr 5 Folhas com Mão Amiga (trilho 1030).
+- **21 imagens técnicas reais** (`technical_drawings`, `subject_type='TYPOLOGY'`,
+  `public/uploads/catalogos/apostila-temperados/pagina-NNN.jpg`, renderizadas do
+  PDF original a 150dpi) — a página inteira da apostila, igual ao padrão já usado
+  no Super5. As páginas 33-46 ("Modelos de projetos") têm uma tipologia por
+  página; a página 23 (Box) é compartilhada por 3 tipologias — citado na legenda
+  de cada uma. Atende ao pedido de "tanto na busca que no orçamento saia o
+  desenho técnico": a lista/edição de Tipologias mostra a imagem real, e o item
+  de orçamento mostra uma prévia quando a fórmula escolhida tem tipologia com
+  desenho.
+- **Tabela de folgas de instalação** (p.32, `installation_deductions`, **24
+  linhas**) — descontos de largura/altura da folha em relação à medida do vão,
+  por tipo de instalação (porta de correr, pivotante, box, basculante, max-ar,
+  janela de correr etc.). Citação literal da fonte: *"cada medidor tem sua
+  própria folga, já que não existe folga padrão"* — por isso os valores ficam em
+  texto (aceitam `+transpasse`, `Variável`), não em número travado, e o
+  `status_code` é `EXTRAIDO` (copiado da fonte, não validado em produção). Só
+  4 das 24 linhas puderam ser vinculadas a uma tipologia específica sem
+  ambiguidade (Porta Pivotante Única ×2, Box Frontal, Box Frontal de Giro, Porta
+  de Correr 5 Folhas com Mão Amiga) — as demais descrevem variantes genéricas
+  (ex: "Janela de correr trilho AL 51") que não batem 1:1 com nenhuma das
+  tipologias cadastradas, então ficam sem vínculo mas continuam citáveis. Nova
+  tela **Tabela de folgas de instalação**, acessível a partir de Tipologias.
+- `formulas` agora expõe `typology_id` na listagem (antes só o nome), usado pelo
+  item de orçamento pra achar o desenho técnico da tipologia da fórmula
+  selecionada.
+
+**Não carregado / decisões explícitas (para não estourar o escopo com dado sem
+confiança suficiente):**
+- **Catálogo de perfis de alumínio da apostila** (p.49-58, códigos AL-1 a AL-75,
+  BX-050/051/052, U-1098, com peso kg/m) — não foi cadastrado como novo fabricante/
+  linha. É um catálogo genérico sem fabricante identificado no texto, usado só
+  como apoio de bandeira/tubo/cantoneira dessas montagens de vidro; carregar como
+  linha de produto exigiria decidir um nome de fabricante que a fonte não dá.
+- **Catálogos de ferragem Linha Santa Marina 1000** (p.81-88, códigos 1001-1810) e
+  **Linha Blindex 3000** (p.120-133, códigos 3001-3742) — apostila mostra as duas
+  linhas completas com imagem e nome de cada peça, mas **não foi re-extraída como
+  novo catálogo de acessórios** (seria um segundo levantamento do porte do Super5,
+  ~230 itens, e vários códigos aqui parecem se sobrepor aos do Super5 sem uma
+  forma seringura de cruzar automaticamente sem risco de vínculo errado). Fica
+  como catálogo disponível para uma extração futura dedicada, se o usuário
+  quiser.
+- **Diagramas de recorte/furação por código de ferragem** ("RECORTES DE
+  FERRAGENS", p.89-102, ~40 diagramas cotados em mm para os códigos Santa Marina
+  1001-1622/1629/1710/1800/1810/1813) — não foram cruzados com os 228 acessórios
+  do Super5 já cadastrados, pelo mesmo motivo acima (evitar vínculo por código
+  sem conferência individual).
+- **Fórmulas de exemplo do próprio fabricante da apostila** citadas junto aos
+  desenhos (ex: p.34 "480 + L = -A + 2" para a peça central do conjunto de
+  basculantes; p.44/45 fórmulas de divisão de portas sanfonadas por vão) —
+  citadas nas notas da tipologia correspondente, mas **não foram convertidas em
+  fórmula de corte no interpretador do sistema**: a notação é abreviada/ambígua
+  o bastante (parece anotação de sala de aula, não uma fórmula pronta pra
+  produção) que adaptá-la sem confirmação de um responsável técnico arriscaria
+  gerar corte errado — o tipo de erro que este sistema existe pra evitar.
+- **Peso do vidro (2,5 kg/m²/mm) e demais tabelas técnicas gerais** (transmissão
+  solar, tolerância de empenamento, tolerância de furos, medidas de chapas etc.,
+  p.1-20) já estavam na primeira leitura (versão .docx) e continuam apenas como
+  referência de leitura — não viraram campo estruturado no banco porque não há
+  cálculo do sistema hoje que consuma esses valores diretamente.

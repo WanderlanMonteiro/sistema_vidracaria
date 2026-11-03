@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# Encaminha tudo que não for arquivo/diretório real para o front controller.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+
+# Nunca expor .env nem arquivos internos caso alguém aponte o domínio direto para a raiz do projeto.
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
