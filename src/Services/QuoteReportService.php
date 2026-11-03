@@ -26,6 +26,9 @@ use PDO;
  */
 final class QuoteReportService
 {
+    /** Espessura de serra reservada entre cada corte na barra, em mm -- estimativa de aproveitamento, não medida de uma serra específica. */
+    private const BAR_KERF_MM = 3.0;
+
     private FormulaCalculationService $calculationService;
 
     public function __construct(private readonly PDO $db)
@@ -101,6 +104,80 @@ final class QuoteReportService
             ];
         }
         usort($result, static fn ($a, $b) => strcmp((string) $a['profile_code'], (string) $b['profile_code']));
+
+        return $result;
+    }
+
+    /**
+     * Plano de corte otimizado: pega as peças do relatório de corte e distribui
+     * em barras padrão (6000mm, tamanho usual de barra de alumínio no Brasil)
+     * pelo algoritmo "first-fit decreasing" -- ordena as peças da maior pra
+     * menor e encaixa cada uma na primeira barra aberta que ainda tem espaço
+     * (reservando BAR_KERF_MM de espessura de serra por corte), abrindo barra
+     * nova só quando não cabe em nenhuma já aberta. É uma heurística de boa
+     * qualidade pro problema de corte de estoque (NP-difícil) -- não é garantia
+     * de menor desperdício possível, é uma estimativa de aproveitamento prática
+     * o bastante pra imprimir e cortar.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function cuttingPlan(int $quoteId, float $barLengthMm = 6000.0): array
+    {
+        $kerfMm = self::BAR_KERF_MM;
+        $report = $this->cuttingReport($quoteId);
+        $result = [];
+
+        foreach ($report as $profile) {
+            $pieces = [];
+            foreach ($profile['cuts'] as $cut) {
+                for ($i = 0; $i < (int) $cut['quantity']; $i++) {
+                    $pieces[] = (float) $cut['length_mm'];
+                }
+            }
+            usort($pieces, static fn ($a, $b) => $b <=> $a);
+
+            $bars = [];
+            foreach ($pieces as $length) {
+                if ($length > $barLengthMm) {
+                    $bars[] = ['remaining_mm' => 0.0, 'cuts' => [$length], 'excede_barra' => true];
+                    continue;
+                }
+                $placedInBar = null;
+                foreach ($bars as $i => $bar) {
+                    if (!$bar['excede_barra'] && ($length + $kerfMm) <= $bar['remaining_mm']) {
+                        $placedInBar = $i;
+                        break;
+                    }
+                }
+                if ($placedInBar !== null) {
+                    $bars[$placedInBar]['cuts'][] = $length;
+                    $bars[$placedInBar]['remaining_mm'] -= $length + $kerfMm;
+                } else {
+                    $bars[] = ['remaining_mm' => $barLengthMm - ($length + $kerfMm), 'cuts' => [$length], 'excede_barra' => false];
+                }
+            }
+
+            $totalBarsLength = count($bars) * $barLengthMm;
+            $totalLeftover = array_sum(array_column($bars, 'remaining_mm'));
+
+            $result[] = [
+                'profile_id' => $profile['profile_id'],
+                'profile_code' => $profile['profile_code'],
+                'profile_name' => $profile['profile_name'],
+                'estimativa_formula_nao_liberada' => $profile['estimativa_formula_nao_liberada'],
+                'bar_length_mm' => $barLengthMm,
+                'total_bars' => count($bars),
+                'waste_percentage' => $totalBarsLength > 0 ? round(($totalLeftover / $totalBarsLength) * 100, 1) : 0.0,
+                'bars' => array_values(array_map(static function (array $bar, int $i): array {
+                    return [
+                        'bar_number' => $i + 1,
+                        'cuts' => array_values($bar['cuts']),
+                        'leftover_mm' => round($bar['remaining_mm'], 1),
+                        'excede_barra' => $bar['excede_barra'],
+                    ];
+                }, $bars, array_keys($bars))),
+            ];
+        }
 
         return $result;
     }

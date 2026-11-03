@@ -919,6 +919,7 @@
         <a href="#/orcamentos/${quote.id}/imprimir" class="btn btn-ghost btn-small" style="text-decoration:none;">Imprimir</a>
         <a href="#/orcamentos/${quote.id}/compras" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de compras</a>
         <a href="#/orcamentos/${quote.id}/corte" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de corte</a>
+        <a href="#/orcamentos/${quote.id}/plano-corte" class="btn btn-ghost btn-small" style="text-decoration:none;">Plano de corte (barras)</a>
         <a href="#/orcamentos/${quote.id}/tempera" class="btn btn-ghost btn-small" style="text-decoration:none;">Relatório de têmpera</a>
         <a href="#/orcamentos/${quote.id}/fabricacao" class="btn btn-small" style="text-decoration:none;">Enviar para fabricação</a>
         <button class="btn btn-small" id="btn-criar-pedido-tempera">Criar pedido de têmpera</button>
@@ -1265,6 +1266,67 @@
         marcados como estimativa usam fórmula ainda não liberada para produção — confira antes de cortar.</p>
       </div>
       ${cuttingReportTableHtml(report)}
+    `;
+  }
+
+  function cuttingPlanHtml(plan) {
+    if (plan.length === 0) {
+      return '<div class="state">Nenhum item com fórmula e medida preenchidas.</div>';
+    }
+    return plan.map((profile) => {
+      const barsHtml = profile.bars.map((bar) => {
+        if (bar.excede_barra) {
+          return `
+            <div class="cut-bar cut-bar-exceeds">
+              <div class="cut-bar-label">Barra ${bar.bar_number} — peça não cabe na barra padrão</div>
+              <div class="cut-bar-track"><div class="cut-bar-segment cut-bar-exceeds-segment">${fmtNum(bar.cuts[0], 0)} mm</div></div>
+            </div>
+          `;
+        }
+        const segments = bar.cuts.map((len) => {
+          const pct = (len / profile.bar_length_mm) * 100;
+          return `<div class="cut-bar-segment" style="flex-basis:${pct}%;" title="${fmtNum(len, 0)} mm">${fmtNum(len, 0)}</div>`;
+        }).join('');
+        const leftoverPct = (bar.leftover_mm / profile.bar_length_mm) * 100;
+        return `
+          <div class="cut-bar">
+            <div class="cut-bar-label">Barra ${bar.bar_number} — sobra ${fmtNum(bar.leftover_mm, 0)} mm</div>
+            <div class="cut-bar-track">${segments}${leftoverPct > 0.3 ? `<div class="cut-bar-leftover" style="flex-basis:${leftoverPct}%;"></div>` : ''}</div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="section-title" style="margin-top:1.2rem;">
+          ${esc(profile.profile_code || '—')} — ${esc(profile.profile_name || '')}
+          ${profile.estimativa_formula_nao_liberada ? '<span class="chip warn">estimativa (fórmula não liberada)</span>' : '<span class="chip ok">fórmula liberada</span>'}
+        </div>
+        <p class="sub">${profile.total_bars} barra(s) de ${fmtNum(profile.bar_length_mm, 0)} mm — ${fmtNum(profile.waste_percentage, 1)}% de desperdício estimado.</p>
+        ${barsHtml}
+      `;
+    }).join('');
+  }
+
+  async function viewOrcamentoPlanoCorte(id) {
+    setLoading('plano de corte');
+    try {
+      const plan = await api(`/orcamentos/${id}/plano-corte`);
+      renderOrcamentoPlanoCorte(id, plan);
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  function renderOrcamentoPlanoCorte(id, plan) {
+    app.innerHTML = `
+      <p><a href="#/orcamentos/${id}" class="btn-ghost">&larr; Voltar para o orçamento</a></p>
+      <div class="page-head">
+        <h1>Plano de corte — Orçamento #${id}</h1>
+        <p>Peças distribuídas em barras de 6000mm (padrão de alumínio no Brasil), pelo algoritmo "maior peça primeiro"
+        — estimativa de aproveitamento, considerando 3mm de serra por corte. Confira antes de cortar, principalmente
+        itens marcados como estimativa (fórmula ainda não liberada para produção).</p>
+      </div>
+      ${cuttingPlanHtml(plan)}
     `;
   }
 
@@ -2466,6 +2528,10 @@
     if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'corte') {
       setActiveNav('orcamentos');
       return viewOrcamentoCorte(segments[1]);
+    }
+    if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'plano-corte') {
+      setActiveNav('orcamentos');
+      return viewOrcamentoPlanoCorte(segments[1]);
     }
     if (segments[0] === 'orcamentos' && segments[1] && segments[2] === 'fabricacao') {
       setActiveNav('orcamentos');

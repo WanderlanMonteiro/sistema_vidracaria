@@ -35,4 +35,12 @@ final class QuoteReportController
         $service = new QuoteReportService($this->db);
         Response::json($service->cuttingReport((int) $params['id']));
     }
+
+    /** @param array<string, string> $params */
+    public function cuttingPlan(Request $request, array $params): void
+    {
+        $service = new QuoteReportService($this->db);
+        $barLength = (float) $request->input('barra_mm', '6000');
+        Response::json($service->cuttingPlan((int) $params['id'], $barLength > 0 ? $barLength : 6000.0));
+    }
 }

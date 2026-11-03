@@ -143,4 +143,51 @@ test('relatório de corte: peças individuais agrupadas por perfil+comprimento, 
     assertEqualsFloat(6.0, $byLength[1190]);
 });
 
+test('plano de corte: peças cabem numa barra só quando a soma + serra não passa de 6000mm', function () {
+    $db = makeQuoteReportDb();
+    $db->exec("INSERT INTO formula_versions (id, status_code, production_locked) VALUES (1, 'LIBERADO_PRODUCAO', 0)");
+    $db->exec("INSERT INTO formula_components (formula_version_id, component_role, profile_id, quantity, expression) VALUES (1, 'MARCO', 10, 1, 'L')");
+    $db->exec("INSERT INTO profiles (id, code, name) VALUES (10, 'MP-100', 'Marco teste')");
+    // 3 peças de 1500mm = 4500mm + 3x3mm de serra = 4509mm, cabe numa barra de 6000mm
+    $db->exec("INSERT INTO quote_items (id, quote_id, formula_version_id, description, quantity, width_mm, height_mm) VALUES
+        (1, 1, 1, 'Item A', 3, 1500, 1000)");
+
+    $service = new QuoteReportService($db);
+    $plan = $service->cuttingPlan(1);
+
+    assertTrue(count($plan) === 1);
+    assertTrue($plan[0]['total_bars'] === 1, 'deveria caber numa única barra');
+    assertEqualsFloat(1491.0, $plan[0]['bars'][0]['leftover_mm']); // 6000 - 4500 - 9mm de serra
+});
+
+test('plano de corte: abre barra nova quando não cabe mais (first-fit decreasing)', function () {
+    $db = makeQuoteReportDb();
+    $db->exec("INSERT INTO formula_versions (id, status_code, production_locked) VALUES (1, 'LIBERADO_PRODUCAO', 0)");
+    $db->exec("INSERT INTO formula_components (formula_version_id, component_role, profile_id, quantity, expression) VALUES (1, 'MARCO', 10, 1, 'L')");
+    $db->exec("INSERT INTO profiles (id, code, name) VALUES (10, 'MP-100', 'Marco teste')");
+    // 5 peças de 2000mm = 10000mm, cada barra de 6000mm só cabe 2 peças (4000+6mm) -> precisa de 3 barras
+    $db->exec("INSERT INTO quote_items (id, quote_id, formula_version_id, description, quantity, width_mm, height_mm) VALUES
+        (1, 1, 1, 'Item B', 5, 2000, 1000)");
+
+    $service = new QuoteReportService($db);
+    $plan = $service->cuttingPlan(1);
+
+    assertTrue($plan[0]['total_bars'] === 3, 'deveria precisar de 3 barras pra 5 peças de 2000mm');
+});
+
+test('plano de corte: peça maior que a barra padrão é sinalizada, não descartada', function () {
+    $db = makeQuoteReportDb();
+    $db->exec("INSERT INTO formula_versions (id, status_code, production_locked) VALUES (1, 'LIBERADO_PRODUCAO', 0)");
+    $db->exec("INSERT INTO formula_components (formula_version_id, component_role, profile_id, quantity, expression) VALUES (1, 'MARCO', 10, 1, 'L')");
+    $db->exec("INSERT INTO profiles (id, code, name) VALUES (10, 'MP-100', 'Marco teste')");
+    $db->exec("INSERT INTO quote_items (id, quote_id, formula_version_id, description, quantity, width_mm, height_mm) VALUES
+        (1, 1, 1, 'Item gigante', 1, 7000, 1000)");
+
+    $service = new QuoteReportService($db);
+    $plan = $service->cuttingPlan(1);
+
+    assertTrue($plan[0]['bars'][0]['excede_barra'] === true);
+    assertEqualsFloat(7000.0, $plan[0]['bars'][0]['cuts'][0]);
+});
+
 exit(runRegisteredTests('QuoteReportServiceTest') > 0 ? 1 : 0);

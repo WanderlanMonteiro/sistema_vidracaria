@@ -284,6 +284,18 @@ A "Ficha de fabricação" (`#/orcamentos/{id}/fabricacao` no frontend) não é u
 próprio — é uma tela que junta corte + compras (vidro/acessórios) + têmpera numa folha
 só, pronta pra imprimir e mandar pra produção.
 
+### `GET /orcamentos/{id}/plano-corte?barra_mm=6000`
+Plano de corte otimizado: pega o resultado do relatório de corte e distribui as peças
+em barras padrão (`barra_mm`, default 6000mm — tamanho usual de barra de alumínio no
+Brasil) pelo algoritmo "first-fit decreasing" (ordena do maior pro menor, encaixa na
+primeira barra aberta que ainda cabe, abre barra nova quando não cabe em nenhuma),
+reservando 3mm de espessura de serra por corte (`QuoteReportService::BAR_KERF_MM`). É
+uma heurística — não o otimizador exato do problema de corte de estoque (NP-difícil) —
+mas estimativa de aproveitamento prática o bastante pra imprimir e cortar. Cada perfil
+retorna `total_bars`, `waste_percentage` e a lista de `bars` (cada uma com os
+comprimentos cortados e a sobra). Peça maior que a barra padrão vem marcada com
+`excede_barra: true` em vez de ser descartada.
+
 ## Próximos passos sugeridos (fora do escopo desta fase)
 
 - Endpoint de cadastro/gestão de usuários pela API (hoje é direto no banco).

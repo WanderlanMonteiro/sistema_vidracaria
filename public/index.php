@@ -104,6 +104,7 @@ $registerCrud($router, '/orcamentos-acessorios', new CrudController($db, 'quote_
 $router->get('/orcamentos/{id}/relatorio-compras', [new QuoteReportController($db), 'purchaseReport']);
 $router->get('/orcamentos/{id}/relatorio-tempera', [new QuoteReportController($db), 'temperingReport']);
 $router->get('/orcamentos/{id}/relatorio-corte', [new QuoteReportController($db), 'cuttingReport']);
+$router->get('/orcamentos/{id}/plano-corte', [new QuoteReportController($db), 'cuttingPlan']);
 
 // --- Pedido de têmpera (rastreável: pendente/enviado/recebido) ---
 $router->get('/pedidos-tempera', [new CrudController($db, 'tempering_orders', [], ['status', 'quote_id', 'supplier_id']), 'index']);
